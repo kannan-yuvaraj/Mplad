@@ -1,0 +1,12 @@
+# Reading photographs and documents on the deployed site — CPU only.
+#
+# Installed by the Dockerfile AFTER PyTorch's CPU build, so pip does not pull the ~2.5 GB
+# CUDA build that PyPI serves by default on Linux.
+#
+# Surya is deliberately absent. It runs a vision-language model through llama-server and
+# needs a GPU and a 1.5 GB model to read a board in reasonable time; on a free CPU Space it
+# would take minutes per photograph. Without it, photographs are read by RapidOCR and the
+# screen says so. Documents are read by Docling, which is fine on a CPU. See docs/OCR.md.
+
+rapidocr-onnxruntime>=1.4
+docling>=2.100

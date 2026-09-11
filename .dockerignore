@@ -1,0 +1,33 @@
+# What the Docker image must never contain. The Hugging Face deploy script already uploads
+# only what the site needs; this is the second lock on the same door, for anyone who runs
+# `docker build .` against a full working copy.
+
+.git
+.env
+.venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+frontend/dist
+
+# Data the running site does not read — and some it must not publish.
+Dataset
+data/raw
+data/interim
+data/models
+data/portal
+data/artifacts/*.sqlite
+data/artifacts/field_photos
+data/artifacts/field_documents
+data/artifacts/ocr_benchmark
+data/artifacts/ocr_benchmark.json
+data/artifacts/_tmp_*
+
+# Source that is not part of serving the site.
+tests
+demo
+docs
+ingestion
+scripts
+salesforce_package
+salesforce_extras

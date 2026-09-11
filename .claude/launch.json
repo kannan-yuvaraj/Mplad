@@ -2,6 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "mplads-api",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "mplads.api.app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8020"
+      ],
+      "port": 8020,
+      "autoPort": false
+    },
+    {
       "name": "mplads-frontend",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
       "runtimeArgs": [
