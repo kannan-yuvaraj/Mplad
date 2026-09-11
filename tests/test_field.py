@@ -84,10 +84,14 @@ def test_no_reference_in_the_image_is_not_a_match():
     assert ocr.match_to_work({"fields": {}}, {"MP3018356-W86316"})["matched"] is False
 
 
-@pytest.mark.skipif(not ocr.available(), reason="OCR runtime not installed on this machine")
-def test_the_engine_reads_a_rendered_work_board_end_to_end(tmp_path):
-    """The only test that exercises the real runtime. Slow, and worth it."""
+@pytest.mark.skipif(not ocr.ENGINES["rapidocr"].available(),
+                    reason="RapidOCR runtime not installed on this machine")
+def test_the_engine_reads_a_rendered_work_board_end_to_end(tmp_path, monkeypatch):
+    """Exercises the real RapidOCR runtime. Pinned to it so the default test run does not
+    start Surya's model server; tests/test_ocr_real.py covers Surya and Docling for real."""
     from PIL import Image, ImageDraw
+
+    monkeypatch.setattr(ocr.config, "OCR_IMAGE_ENGINES", ("rapidocr",))
 
     board = Image.new("RGB", (900, 320), "white")
     draw = ImageDraw.Draw(board)

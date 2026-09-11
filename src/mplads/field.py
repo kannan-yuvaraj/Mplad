@@ -27,6 +27,7 @@ LOGGER = logging.getLogger(__name__)
 
 DB = config.ARTIFACTS / "field_verifications.sqlite"
 PHOTOS = config.ARTIFACTS / "field_photos"
+DOCUMENTS = config.ARTIFACTS / "field_documents"
 
 #: What an officer can report. Deliberately includes the outcomes that clear a work —
 #: a verification tool that can only confirm suspicion is a tool for confirming suspicion.
@@ -94,6 +95,12 @@ MIGRATIONS: dict[str, str] = {
     "photo_reuse_count":
         "ALTER TABLE verification ADD COLUMN photo_reuse_count INTEGER NOT NULL DEFAULT 0",
     "reused_from": "ALTER TABLE verification ADD COLUMN reused_from TEXT",
+    # Which reader read the board, and whether a second, independent reader agreed. Two
+    # engines reading the same reference is corroboration; one engine at "99%" is not.
+    "ocr_engine": "ALTER TABLE verification ADD COLUMN ocr_engine TEXT",
+    "readers_agree": "ALTER TABLE verification ADD COLUMN readers_agree INTEGER",
+    # A sanction order, work order or certificate the officer attached, read by Docling.
+    "document": "ALTER TABLE verification ADD COLUMN document TEXT",
 }
 
 
@@ -119,6 +126,23 @@ def save_photo(data: bytes, filename: str) -> str:
     if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
         raise ValueError(f"unsupported image type: {suffix}")
     path = PHOTOS / f"{digest}{suffix}"
+    if not path.exists():
+        path.write_bytes(data)
+    return path.name
+
+
+def save_document(data: bytes, filename: str) -> str:
+    """Store an uploaded document (sanction order, work order, certificate) under a content
+    hash, the same way photographs are stored — once, and never under a name the uploader
+    chose, so a crafted filename cannot reach outside the folder."""
+    DOCUMENTS.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(data).hexdigest()[:24]
+    suffix = Path(filename).suffix.lower() or ".pdf"
+    if suffix not in config.DOCUMENT_SUFFIXES:
+        raise ValueError(f"unsupported document type: {suffix}")
+    if suffix == ".pdf" and not data.startswith(b"%PDF"):
+        raise ValueError("this file is named .pdf but is not a PDF")
+    path = DOCUMENTS / f"{digest}{suffix}"
     if not path.exists():
         path.write_bytes(data)
     return path.name
@@ -175,7 +199,8 @@ def record(work_ref: str, outcome: str, actor: str, role: str, notes: str = "",
            demo: bool = False, board_ref: str | None = None,
            board_amount: float | None = None, ocr_confidence: float | None = None,
            needed_confirmation: bool = False, photo_reuse_count: int = 0,
-           reused_from: str | None = None) -> dict:
+           reused_from: str | None = None, ocr_engine: str | None = None,
+           readers_agree: bool | None = None, document: str | None = None) -> dict:
     """Append one verification. Immutable once written.
 
     `demo` marks a record seeded for a demonstration. It is carried through to the API and
@@ -199,12 +224,14 @@ def record(work_ref: str, outcome: str, actor: str, role: str, notes: str = "",
         cur = conn.execute(
             "INSERT INTO verification (work_ref, outcome, notes, photo, ocr_text, actor,"
             " role, created_at, row_hash, phash, dhash, demo, board_ref, board_amount,"
-            " ocr_confidence, needed_confirmation, photo_reuse_count, reused_from)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " ocr_confidence, needed_confirmation, photo_reuse_count, reused_from,"
+            " ocr_engine, readers_agree, document)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (work_ref, outcome, notes, photo, ocr_text, actor, role, ts, row_hash,
              prints.get("phash"), prints.get("dhash"), int(demo),
              board_ref, board_amount, ocr_confidence, int(needed_confirmation),
-             int(photo_reuse_count), reused_from),
+             int(photo_reuse_count), reused_from, ocr_engine,
+             None if readers_agree is None else int(readers_agree), document),
         )
         conn.commit()
         new_id = cur.lastrowid

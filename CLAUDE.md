@@ -78,8 +78,8 @@ Product constraints, not style preferences. They must survive into code and UI c
 | Agencies changed | 73 of 697 |
 | Health Index | 62.9 / 100 |
 | Synthetic validation | **69.2%** overall (stalled 96.1%, inflated 83.2%, break 58.0%, cloned 50.0%) |
-| **Tests** | **245 passing**, 2 skipped |
-| **API routes** | **44** |
+| **Tests** | **300 passing**, 1 skipped (Surya real test is opt-in: `MPLADS_TEST_SURYA=1`) |
+| **API routes** | **47** (+ `/api/ocr/document`, `/api/document/{name}`, `/api/ocr/status`) |
 | **Chat tools** | **15** read-only |
 | **Languages** | **10** (UI + Agentforce, all 100%) |
 
@@ -99,14 +99,21 @@ Product constraints, not style preferences. They must survive into code and UI c
 
 Python 3.11 (`.venv/`, uv) · pandas 2.3.3 · numpy 2.4.6 · scipy 1.17.1 · scikit-learn 1.9.0
 · lifelines 0.30.3 · pyarrow · FastAPI 0.141 · uvicorn · PyJWT · anthropic 1.1.0 ·
-rapidocr-onnxruntime 1.4.4 · onnxruntime · Pillow · **fpdf2 2.8.8** · pytest 9.1.1
+rapidocr-onnxruntime 1.4.4 · onnxruntime · **Pillow 10.4** (pinned down by surya) · **fpdf2 2.8.8** ·
+pytest 9.1.1 · **OCR: surya-ocr 0.22.1 · docling 2.126 · torch 2.14 CPU build**
 React 18 + Vite 5 + Recharts + react-router-dom. Salesforce CLI (`sf`) installed.
+**llama.cpp** (`winget install ggml.llamacpp`, Vulkan build) runs Surya on the Quadro T1000.
 
-**`sentence-transformers` and `torch` are NOT installed.** MiniLM embeddings were computed
-once and cached at `Dataset/models/archetype/desc_embeddings.npz` (307 MB, 187,865 × 384
-float32). `train.py` loads the cache and never runs a neural network. Consequence: a
-brand-new description cannot be embedded without reinstalling those two libraries. Say this
-proactively — it is why the pipeline runs in 90 seconds with no GPU.
+**`sentence-transformers` is NOT installed** (torch now is, for Surya/Docling only). MiniLM
+embeddings were computed once and cached at `Dataset/models/archetype/desc_embeddings.npz`
+(307 MB, 187,865 × 384 float32). `train.py` loads the cache and never runs a neural network.
+Consequence: a brand-new description cannot be embedded without installing
+sentence-transformers. Say this proactively — it is why the pipeline runs in 90 seconds.
+
+**The venv has no pip.** Install with the system uv:
+`/c/Users/kanna/AppData/Local/Python/pythoncore-3.14-64/Scripts/uv.exe pip install --python .venv/Scripts/python.exe <pkg>`.
+**Hugging Face's Xet downloader stalls at 0 bytes on this network** — set `HF_HUB_DISABLE_XET=1`.
+The connection runs at ~240 KB/s; a 1.5 GB model takes ~25 minutes.
 
 **Docker: NOT installed.** Node: installed.
 
@@ -129,7 +136,8 @@ src/mplads/
   validation/synthetic.py   plant known anomalies, measure detection
   llm.py               Claude briefings + translation, template fallback
   chat.py              15 read-only tools over ALL 210,993 works + offline router
-  ocr.py               read a work board; refuses to settle an ambiguous reference
+  ocr.py               Surya reads board photos, RapidOCR checks it, Docling reads documents;
+                       refuses to settle an ambiguous reference — see docs/OCR.md
   photohash.py         pHash + dHash — the same *picture*, not the same file
   field.py             immutable, attributed site-verification records + camera evidence
   casereport.py        PDF case report (fpdf2)                          ← NEW
@@ -561,6 +569,36 @@ practice, been shown a list of flagged works.
 `useI18n()` — one language for the whole product, never a second picker.
 
 ---
+
+## OCR — Surya, RapidOCR, Docling (`ocr.py`, `docs/OCR.md`)
+
+- **Photographs → Surya OCR 2** (vision-language model, GGUF, run by `llama-server` on the
+  GPU via Vulkan; `MPLADS_LLAMA_DEVICE=Vulkan1` in `.env`). **RapidOCR reads the same photo
+  as a second reader**; `cross_check.agrees` false → `match_to_work` forces confirmation and
+  offers the other reading. Surya missing / not started / failing → RapidOCR alone, and the
+  result says so (`engine`, `fell_back_from`).
+- **Documents → Docling** (`POST /api/ocr/document`): Markdown with tables, **every** work
+  ref (each checked against all 210,993), amounts, `mentions_this_work`. Uses the PP-OCRv6
+  models bundled in the `rapidocr` wheel for scanned pages.
+- **The model is 1.5 GB in `data/models/ocr/` (gitignored).** `scripts/fetch_ocr_models.py`
+  downloads resumably and writes `manifest.json` only when size + SHA-256 match Hugging Face.
+  **Surya counts as available only if the manifest matches** — a half-downloaded GGUF has a
+  valid header and would crash llama-server 40 s into startup.
+- The API warms Surya in a background thread at startup and stops it on shutdown.
+- **Amounts on boards are printed with "₹", which RapidOCR drops or reads as "?"** — it lost
+  the amount on half the benchmark. `LABELLED_AMOUNT` finds it by the "Sanctioned Amount"
+  label instead. Surya reads the ₹ sign.
+- `scripts/benchmark_ocr.py` → `docs/OCR_BENCHMARK.md`: boards drawn from real works, 11
+  photograph conditions, exact-reference accuracy per reader. **Synthetic, and says so.**
+  **Measured (44 boards, T1000):** Surya 93% exact ref / 93% amount / ~20 s a board;
+  RapidOCR 91% / 73% / 2 s. Motion blur: Surya 50%, RapidOCR 0%. Surya once read a wrong
+  *plausible* ref on heavy JPEG; RapidOCR was right and the disagreement held the match —
+  the two never agreed on the same wrong number.
+- Windows: Surya logs `Failed to stop llamacpp … WinError 87` at shutdown. Harmless — the
+  process is killed; Surya's liveness check misreads Windows' "no such process".
+- Tests: `test_ocr_engines.py` (stand-ins, fast) · `test_ocr_real.py` (Docling when cached;
+  Surya only with `MPLADS_TEST_SURYA=1`).
+- Verification records gained `ocr_engine`, `readers_agree`, `document` (MIGRATIONS).
 
 ## The field-verification loop (and the camera evidence)
 

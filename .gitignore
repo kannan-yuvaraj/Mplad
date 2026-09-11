@@ -29,3 +29,10 @@ frontend/dist/
 # Generated sample output — regenerate with the scripts, do not commit
 case_report_sample.pdf
 .vscode/
+
+# OCR model weights (Surya, ~1.5 GB) — fetched by scripts/fetch_ocr_models.py, never committed
+data/models/
+
+# Live-portal crawl output from ingestion/ — raw API responses, checkpoints, logs (~270 MB).
+# Regenerable by re-running the crawl; the code that produces it is committed.
+data/portal/

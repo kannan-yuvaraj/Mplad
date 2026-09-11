@@ -24,6 +24,16 @@ dev = [
     "pytest>=8",
     "httpx>=0.27",
 ]
+# Reading site photographs and documents. Surya also needs the llama-server binary
+# (winget install ggml.llamacpp) and its model (scripts/fetch_ocr_models.py); without
+# them photographs are read by RapidOCR alone. Install torch from the CPU index to save
+# ~4 GB: --extra-index-url https://download.pytorch.org/whl/cpu
+ocr = [
+    "rapidocr-onnxruntime>=1.4",
+    "surya-ocr>=0.22",
+    "docling>=2.100",
+    "Pillow>=10.4",
+]
 
 [project.scripts]
 mplads = "mplads.cli:main"

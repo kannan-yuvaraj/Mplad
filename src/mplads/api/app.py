@@ -73,7 +73,12 @@ async def lifespan(_: FastAPI):
             _concerning_pairs()
     except Exception as exc:  # pragma: no cover - never block startup on a warm-up
         LOGGER.info("duplicate frame not warmed (%s)", type(exc).__name__)
+    # Surya's server takes tens of seconds to load its model. Started in the background so
+    # the API is answering immediately, and so the first officer to photograph a board is
+    # not the one who waits for it. If it cannot start, photographs fall back to RapidOCR.
+    ocr.warm_in_background()
     yield
+    ocr.shutdown()
 
 
 app = FastAPI(title="MPLADS Intelligence", version="2.0", lifespan=lifespan)
@@ -947,6 +952,52 @@ async def read_photo(file: UploadFile = File(...), work_ref: str = Form(""),
     return extracted
 
 
+@app.post("/api/ocr/document")
+async def read_document(file: UploadFile = File(...), work_ref: str = Form(""),
+                        principal: Principal = Depends(current_principal)) -> dict:
+    """Read a sanction order, work order or completion certificate with Docling.
+
+    The document is stored under a content hash and read into Markdown, so its tables
+    survive. Every work reference in it is checked against the portfolio — an order often
+    covers several works — and whether the work this case file is about appears in it.
+    """
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(400, "document is larger than 20 MB")
+    try:
+        name = field.save_document(data, file.filename or "document.pdf")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    extracted = ocr.read_document(field.DOCUMENTS / name)
+    extracted["document"] = name
+    refs = extracted.get("work_refs") or []
+    known = store().all_refs
+    extracted["refs_found"] = [
+        {"work_ref": ref, "known": ref in known,
+         "alternatives": [] if ref in known else ocr.near_misses(ref, known)}
+        for ref in refs
+    ]
+    extracted["mentions_this_work"] = bool(work_ref) and work_ref in refs
+    extracted["match"] = ocr.match_to_work(extracted, known, store().amounts)
+    return extracted
+
+
+@app.get("/api/document/{name}")
+def document(name: str):
+    """Serve an uploaded document."""
+    path = field.DOCUMENTS / Path(name).name  # basename only — no traversal
+    if not path.exists():
+        raise HTTPException(404, "document not found")
+    return FileResponse(path)
+
+
+@app.get("/api/ocr/status")
+def ocr_status() -> dict:
+    """Which readers this machine has, which one reads photographs, and whether it is ready."""
+    return ocr.status()
+
+
 @app.get("/api/photo/{name}")
 def photo(name: str):
     """Serve an uploaded verification photo."""
@@ -970,6 +1021,11 @@ class VerificationRequest(BaseModel):
     needed_confirmation: bool = False
     photo_reuse_count: int = 0
     reused_from: str | None = None
+    #: Which reader read the board, and whether a second reader read the same reference.
+    ocr_engine: str | None = None
+    readers_agree: bool | None = None
+    #: A document the officer attached (stored name, from /api/ocr/document).
+    document: str | None = None
 
 
 @app.post("/api/verify/{work_ref}")
@@ -996,6 +1052,8 @@ def add_verification(work_ref: str, req: VerificationRequest,
             ocr_confidence=req.ocr_confidence,
             needed_confirmation=req.needed_confirmation,
             photo_reuse_count=req.photo_reuse_count, reused_from=req.reused_from,
+            ocr_engine=req.ocr_engine, readers_agree=req.readers_agree,
+            document=Path(req.document).name if req.document else None,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))

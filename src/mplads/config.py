@@ -159,3 +159,43 @@ REQUIRE_AUTH: bool = _os.environ.get("MPLADS_REQUIRE_AUTH", "0") == "1"
 
 #: Append-only, hash-chained audit log location.
 AUDIT_LOG_PATH = REPO_ROOT / "data" / "artifacts" / "audit_log.sqlite"
+
+# --- OCR ----------------------------------------------------------------------
+#
+# Two jobs, two engines. A *photograph* of a site board is read by Surya (a vision-language
+# OCR model served by llama.cpp), with RapidOCR as a second, independent reader and as the
+# fallback. A *document* — a sanction order, work order or completion certificate, as a PDF
+# or a scan — is read by Docling, which keeps the page's structure (headings, tables).
+# Every value below can be overridden from the environment; nothing is required, and a
+# machine with none of it installed still records verifications by hand.
+
+#: Model weights we fetch ourselves live here, not in a per-user cache, so a deployment can
+#: ship them alongside the code. Gitignored with the rest of data/.
+OCR_MODELS = REPO_ROOT / "data" / "models" / "ocr"
+
+#: Readers tried for a photograph, in order. The first that is available is the primary;
+#: the next available one reads the same image again as a cross-check.
+OCR_IMAGE_ENGINES: tuple[str, ...] = tuple(
+    e.strip() for e in _os.environ.get("MPLADS_OCR_ENGINES", "surya,rapidocr").split(",")
+    if e.strip()
+)
+
+#: Surya's model, as the two GGUF files llama-server loads (model + vision projector).
+SURYA_GGUF_DIR = Path(_os.environ.get("MPLADS_SURYA_GGUF_DIR", OCR_MODELS / "surya-ocr-2-gguf"))
+SURYA_GGUF_MODEL = SURYA_GGUF_DIR / "surya-2.gguf"
+SURYA_GGUF_MMPROJ = SURYA_GGUF_DIR / "surya-2-mmproj.gguf"
+
+#: The llama-server binary. Empty means "find it on PATH, then in the winget install".
+LLAMA_SERVER: str = _os.environ.get("MPLADS_LLAMA_SERVER", "")
+
+#: Which llama.cpp device runs Surya ("Vulkan1" is a discrete GPU on a machine that also has
+#: integrated graphics). Empty lets llama.cpp choose. `llama-server --list-devices` lists them.
+LLAMA_DEVICE: str = _os.environ.get("MPLADS_LLAMA_DEVICE", "")
+
+#: Seconds allowed for llama-server to load the model before Surya is declared unavailable.
+SURYA_STARTUP_TIMEOUT: int = int(_os.environ.get("MPLADS_SURYA_STARTUP_TIMEOUT", "300"))
+
+#: Documents Docling accepts from an upload. Images are accepted too (a phone photo of a
+#: sanction order is a document, not a site board).
+DOCUMENT_SUFFIXES: frozenset[str] = frozenset({".pdf", ".png", ".jpg", ".jpeg", ".tif",
+                                               ".tiff", ".bmp", ".webp"})
