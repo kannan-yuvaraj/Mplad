@@ -1,0 +1,114 @@
+{
+  "raw_stage_rows": 476781,
+  "work_level_rows": 210987,
+  "unique_work_refs": 210987,
+  "duplicate_work_refs": 0,
+  "unique_states": 36,
+  "unique_constituencies": 545,
+  "unique_agencies": 778,
+  "unique_descriptions": 187865,
+  "unique_activity_names": 180700,
+  "unique_work_categories": 4,
+  "district_column_available": false,
+  "stage_coverage": {
+    "recommended_rows": 210454,
+    "sanctioned_rows": 180517,
+    "completed_rows": 85810,
+    "sanctioned_rows_with_a_date": 180517
+  },
+  "lifecycle": {
+    "works_sanctioned": 180357,
+    "works_completed": 85767,
+    "works_with_amount_and_completion": 85525,
+    "works_completed_without_sanction_record": 70,
+    "open_works": 125220
+  },
+  "amounts": {
+    "null_pct": 0.329,
+    "non_positive_dropped_at_load": 6,
+    "negative_remaining": 0,
+    "median": 315000.0,
+    "max": 75742166.0,
+    "p99": 3500000.0
+  },
+  "dates": {
+    "recommendation_parse_fail_pct": 0.329,
+    "completion_null_pct_overall": 59.35,
+    "as_of": "2026-05-26",
+    "earliest_recommendation": "2019-05-23",
+    "backdated_rows": 1191,
+    "future_dated_rows": 9,
+    "delay_null_due_to_bad_dates": 1442
+  },
+  "durations": {
+    "usable_for_survival": 209092,
+    "events_observed": 84325,
+    "censored": 124767,
+    "median_delay_days_completed": 401.0,
+    "max_days_open": 2560.0
+  },
+  "actual_amount": {
+    "completed_with_both": 85525,
+    "identical_to_recommended": 84111,
+    "differing": 1414,
+    "ratio_min": 0.679822,
+    "ratio_max": 1.000011,
+    "ratio_above_1_05x": 0,
+    "ratio_above_1_5x": 0,
+    "interpretation": "completion confirmation, NOT independent expenditure"
+  },
+  "peer_groups": {
+    "works_with_a_peer_group": 209929,
+    "coverage_pct": 99.5,
+    "distinct_peer_groups": 1457,
+    "median_peer_group_size": 282.0
+  },
+  "signals": {
+    "peer_amount": 1010,
+    "peer_delay": 255,
+    "peer_stall": 254,
+    "conformance": 1270,
+    "completion_risk": 6238,
+    "change_point": 18545,
+    "iforest": 2110
+  },
+  "confidence_bands": {
+    "NONE": 183036,
+    "LOW": 26317,
+    "MEDIUM": 1580,
+    "HIGH": 54
+  },
+  "missingness_pct_by_column": {
+    "work_ref": 0.0,
+    "rec_dtl_id": 0.0,
+    "mp_id": 0.0,
+    "work_id": 59.35,
+    "mp_name": 0.329,
+    "mp_tenure": 87.255,
+    "house": 0.329,
+    "state_name": 0.329,
+    "constituency_name": 0.329,
+    "implementing_agency": 0.329,
+    "work_description": 0.488,
+    "activity_name": 0.329,
+    "work_category": 0.359,
+    "attach_id": 64.185,
+    "recommended_amount": 0.329,
+    "actual_amount": 59.35,
+    "average_rating": 59.35,
+    "recommendation_date": 0.329,
+    "completion_date": 59.35,
+    "is_sanctioned": 0.0,
+    "is_completed": 0.0,
+    "financial_year": 0.329,
+    "scale_bucket": 0.329,
+    "delay_days": 60.033,
+    "duration_days": 0.898,
+    "event_observed": 0.0,
+    "is_backdated": 0.0,
+    "is_future_dated": 0.0,
+    "archetype_id": 0.488,
+    "archetype_label": 0.488,
+    "work_status": 0.0
+  }
+}

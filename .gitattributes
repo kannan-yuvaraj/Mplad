@@ -1,0 +1,5 @@
+Dataset/raw/esakshi_stagewise_works_ls17_raw.csv filter=lfs diff=lfs merge=lfs -text
+Dataset/models/archetype/desc_embeddings.npz filter=lfs diff=lfs merge=lfs -text
+Dataset/raw/esakshi_stagewise_works_ls18_raw.csv filter=lfs diff=lfs merge=lfs -text
+Dataset/raw/esakshi_stagewise_works_rs_raw.csv filter=lfs diff=lfs merge=lfs -text
+Dataset/raw/vonter_mplads_recommendations_raw.csv filter=lfs diff=lfs merge=lfs -text

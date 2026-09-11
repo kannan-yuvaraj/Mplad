@@ -1,6 +1,3 @@
-# Supplied data package — real government data, large, never modified by us
-Dataset/
-
 # Raw inputs are never committed. In this repo they live in Dataset/raw (ignored
 # above); data/raw is kept here so the FRD's layout works if inputs are ever moved.
 data/raw/

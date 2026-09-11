@@ -1,0 +1,70 @@
+{
+  "generated_utc": "2026-08-24T16:07:27+00:00",
+  "python": "3.11.14",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "packages": {
+    "pandas": "2.3.3",
+    "numpy": "2.4.6",
+    "sklearn": "1.9.0",
+    "lifelines": "0.30.3"
+  },
+  "seeds": {
+    "archetype_seed": 0,
+    "isolation_forest_seed": 0,
+    "cox_sample_seed": 0
+  },
+  "config": {
+    "archetype_k": 50,
+    "k_grid": [
+      20,
+      30,
+      40,
+      50,
+      60,
+      80
+    ],
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "embedding_max_seq_length": 64,
+    "peer_min_group": 30,
+    "peer_percentile_gate": 0.98,
+    "scale_buckets": [
+      "<1L",
+      "1-5L",
+      "5-10L",
+      "10-25L",
+      "25L-1cr",
+      ">1cr"
+    ],
+    "survival_horizon_days": 365,
+    "survival_study_start": "2023-04-01",
+    "completion_risk_gate": 0.05,
+    "change_point_gate": 0.9,
+    "fusion_weights": {
+      "conformance": 0.75,
+      "peer_amount": 0.6,
+      "peer_delay": 0.6,
+      "completion_risk": 0.6,
+      "peer_stall": 0.5,
+      "change_point": 0.5,
+      "iforest": 0.4
+    },
+    "audit_budget_days": 100.0,
+    "audit_visit_days": 1.0,
+    "audit_extra_days": 0.25,
+    "audit_cluster": "travel_cluster"
+  },
+  "metrics": {
+    "cox_c_index": 0.6924,
+    "holdout_c_index": 0.7425,
+    "holdout_n": 84593,
+    "national_exposure_inr": 52186892325.11879,
+    "audit_plan_works": 238,
+    "audit_plan_clusters": 54,
+    "audit_plan_exposure_inr": 1668997173.6828098,
+    "baselines": {
+      "audit-ROI plan": 1668997173.6828098,
+      "largest amount first": 1351506325.696221,
+      "random selection": 22142395.362068634
+    }
+  }
+}
