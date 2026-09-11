@@ -67,13 +67,13 @@ export default function Login() {
 
         {accounts && (
           <div className="login-demo">
-            <div className="login-demo-head">Evaluation accounts</div>
+            <div className="login-demo-head">Demo accounts for judges and testers</div>
             <div className="login-accounts">
               {accounts.accounts.map((a) => (
                 <button key={a.username} className="login-account" onClick={() => useAccount(a.username)}>
                   <span className="la-name">{a.name}</span>
                   <span className="la-meta">
-                    {a.username} · {a.role}{a.scope ? ` · ${a.scope}` : " · unrestricted"}
+                    {a.username} · {a.role}{a.scope ? ` · ${a.scope}` : " · all of India"}
                   </span>
                 </button>
               ))}
@@ -83,7 +83,7 @@ export default function Login() {
         )}
 
         <button className="login-skip" onClick={() => nav("/overview")}>
-          Continue without signing in — read-only public view →
+          Continue without signing in — you can look, but not change anything →
         </button>
       </div>
     </div>

@@ -4,6 +4,18 @@ import { useI18n } from "../I18nContext.jsx";
 import { api, num, rupees } from "../api.js";
 import { Band, Loading, Topbar } from "../components/Bits.jsx";
 import { Reveal } from "../components/Reveal.jsx";
+import { IconAssistant, IconCasework, IconCloud, IconQueue, IconReport, IconTarget } from "../components/icons.jsx";
+import { STAGE_HELP, clueName, familyName, plainEvidence } from "../plain.js";
+
+/** The queue's own reading of itself, re-said. Same three cases as the engine. */
+function plainAgeing(a) {
+  const r = a.reading || "";
+  if (r.startsWith("Every one of")) {
+    return `All ${num(a.open_cases)} open cases are still on the step they started on. That is because they were all added at the same moment — like a class on its first day, not a team that has fallen behind. These numbers start to mean something once officers begin working on the cases.`;
+  }
+  if (r.startsWith("Nothing open")) return "No open case has gone past its review date.";
+  return `${num(a.late)} of ${num(a.open_cases)} open cases have gone past the date someone promised to review them, holding ${rupees(a.late_exposure_rupees)} of money at risk between them.`;
+}
 
 const STAGE_COLORS = {
   New: "#3b82f6",
@@ -37,7 +49,7 @@ export default function SalesforceHub() {
     {
       role: "assistant",
       content:
-        "**Welcome to Agentforce for MPLADS**.\nI answer questions about investigation cases, exposure at risk, escalation tiers, and officer next steps. Cases are investigation leads with evidence, never findings of wrongdoing.",
+        "**Welcome to the MPLADS assistant (Agentforce)**.\nAsk me about cases, money at risk, which level of government is handling a case, and what an officer should do next. A case is a work worth checking, with its clues — never proof that anyone did wrong.",
     },
   ]);
   const [agentBusy, setAgentBusy] = useState(false);
@@ -93,7 +105,7 @@ export default function SalesforceHub() {
         officer_finding: finding,
       });
       setActiveStage(newStage);
-      setUpdateMsg(`✅ Case updated to Stage: ${newStage}`);
+      setUpdateMsg(`✅ Case moved to step: ${newStage}`);
       // Refresh local list
       setCases((prev) =>
         prev.map((item) =>
@@ -108,7 +120,7 @@ export default function SalesforceHub() {
         officer_finding: finding,
       }));
     } catch (e) {
-      setUpdateMsg(`❌ Failed to update stage: ${e}`);
+      setUpdateMsg(`❌ Could not move the case: ${e}`);
     } finally {
       setUpdating(false);
     }
@@ -132,7 +144,7 @@ export default function SalesforceHub() {
         {
           role: "assistant",
           content:
-            "I could not query Agentforce at this moment. Ensure the backend API is active.",
+            "I could not reach the assistant just now. The system may still be starting — please try again in a moment.",
         },
       ]);
     } finally {
@@ -160,7 +172,7 @@ export default function SalesforceHub() {
   if (loading || !overview) {
     return (
       <>
-        <Topbar title="Salesforce CRM & Agentforce" />
+        <Topbar title="Case Tracking" />
         <div className="content">
           <Loading />
         </div>
@@ -176,13 +188,13 @@ export default function SalesforceHub() {
   return (
     <>
       <Topbar
-        title="Salesforce CRM & Agentforce"
-        sub="Field Casework, Governance Path & Ministry Reports"
+        title="Case Tracking"
+        sub="Who is handling each case, how far it has got, and reports for the Ministry — kept in Salesforce"
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span className="pill pill-green" style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className="pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#15803d", display: "inline-block" }} />
-              Live Org: {org.alias}
+              Connected: {org.alias}
             </span>
           </div>
         }
@@ -201,13 +213,13 @@ export default function SalesforceHub() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <h3 style={{ margin: 0, fontSize: 18, color: "var(--accent)" }}>⚡ Salesforce Connected Org</h3>
+                <h3 style={{ margin: 0, fontSize: 18, color: "var(--accent)" }}><IconCasework size={17} aria-hidden="true" /> Connected Salesforce account</h3>
                 <span className="fam-tag" style={{ background: "#e0f2fe", color: "#0369a1", fontWeight: 700 }}>
-                  Org ID: {org.org_id}
+                  Account ID: {org.org_id}
                 </span>
               </div>
               <div className="muted" style={{ fontSize: 13 }}>
-                Connected as <strong>{org.username}</strong> · App: <strong>{overview.app.name}</strong> · Agentforce Topic: <strong>{overview.agentforce.topic}</strong>
+                Signed in as <strong>{org.username}</strong> · App: <strong>{overview.app.name}</strong> · Assistant topic: <strong>{overview.agentforce.topic}</strong>
               </div>
             </div>
 
@@ -215,10 +227,10 @@ export default function SalesforceHub() {
               <button
                 className="btn btn-primary"
                 onClick={() => window.open(org.instance_url, "_blank")}
-                title="Launch Salesforce Lightning Console"
+                title="Open Salesforce in a new tab"
                 style={{ display: "flex", alignItems: "center", gap: 6 }}
               >
-                <span>☁ Launch Salesforce</span>
+                <IconCloud size={14} aria-hidden="true" /><span>Open Salesforce</span>
               </button>
             </div>
           </div>
@@ -232,7 +244,7 @@ export default function SalesforceHub() {
             usually a supervisor's failure rather than an officer's. */}
         {ageing && (
           <Reveal>
-            <div className="section-title">What has gone quiet</div>
+            <div className="section-title">Cases nobody has moved</div>
             <div className="card" style={{ marginBottom: 24 }}>
               <div className="grid cols-4" style={{ marginBottom: 14 }}>
                 <div className="card stat">
@@ -241,24 +253,24 @@ export default function SalesforceHub() {
                   <div className="foot">of {num(ageing.open_cases)} still open</div>
                 </div>
                 <div className="card stat">
-                  <div className="label">Exposure sitting in them</div>
+                  <div className="label">Money at risk in them</div>
                   <div className="value">{rupees(ageing.late_exposure_rupees)}</div>
-                  <div className="foot">still out there while nobody looks</div>
+                  <div className="foot">still waiting while nobody looks</div>
                 </div>
                 <div className="card stat">
                   <div className="label">Never picked up</div>
                   <div className="value">{num(ageing.never_picked_up)}</div>
-                  <div className="foot">still on the stage they were loaded on</div>
+                  <div className="foot">still on the step they started on</div>
                 </div>
                 <div className="card stat">
-                  <div className="label">Oldest</div>
+                  <div className="label">Most overdue</div>
                   <div className="value">{num(ageing.oldest_days_late)}</div>
-                  <div className="foot">days past the committed date</div>
+                  <div className="foot">days past the promised date</div>
                 </div>
               </div>
 
-              <div className="dossier-reading" style={{ padding: "10px 14px" }}>
-                {ageing.reading}
+              <div className="dossier-reading" style={{ padding: "10px 14px" }} title={ageing.reading}>
+                {plainAgeing(ageing)}
               </div>
 
               <div className="dossier-chips" style={{ marginTop: 12 }}>
@@ -268,7 +280,12 @@ export default function SalesforceHub() {
                   </span>
                 ))}
               </div>
-              <p className="plan-cost-note">{ageing.note} {ageing.contract}</p>
+              <p className="plan-cost-note" title={`${ageing.note} ${ageing.contract}`}>
+                "Late" means the review date has passed and nobody has written that they looked.
+                "Never picked up" means the case is still on the step it started on — a different
+                problem, usually for a supervisor rather than an officer. This checks how our own
+                team is keeping up; a late case says nothing bad about the work itself.
+              </p>
             </div>
           </Reveal>
         )}
@@ -277,35 +294,35 @@ export default function SalesforceHub() {
         <Reveal>
           <div className="grid cols-4" style={{ marginBottom: 24 }}>
             <div className="card stat">
-              <div className="label">CRM Cases Loaded</div>
+              <div className="label">Cases in Salesforce</div>
               <div className="value" style={{ fontSize: 24 }}>
                 {overview.objects.Investigation_Case__c.records_loaded} HIGH
               </div>
-              <div className="foot">Top prioritized leads for casework</div>
+              <div className="foot">the most important flagged works</div>
             </div>
 
             <div className="card stat">
-              <div className="label">₹ Exposure at Risk</div>
+              <div className="label">₹ Money at risk</div>
               <div className="value accent" style={{ fontSize: 24 }}>
                 {rupees(overview.objects.Investigation_Case__c.total_exposure_rupees)}
               </div>
-              <div className="foot">500 high-risk cases exposure</div>
+              <div className="foot">in these {overview.objects.Investigation_Case__c.records_loaded} cases</div>
             </div>
 
             <div className="card stat">
-              <div className="label">Evidence Items Linked</div>
+              <div className="label">Clues attached</div>
               <div className="value" style={{ fontSize: 24 }}>
-                {overview.objects.Evidence__c.records_loaded} items
+                {overview.objects.Evidence__c.records_loaded} clues
               </div>
-              <div className="foot">Master-Detail multi-signal proof</div>
+              <div className="foot">each clue is linked to its case</div>
             </div>
 
             <div className="card stat">
-              <div className="label">Governance Path</div>
+              <div className="label">Steps for each case</div>
               <div className="value" style={{ fontSize: 24, color: "#15803d" }}>
-                5 Active Stages
+                5 steps
               </div>
-              <div className="foot">Officer guidance & ML label feedback</div>
+              <div className="foot">with advice for the officer at each step</div>
             </div>
           </div>
         </Reveal>
@@ -315,10 +332,10 @@ export default function SalesforceHub() {
           {/* Left Column: Interactive 5-Stage Path Console */}
           <div className="card" style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ margin: 0 }}>🎯 Auditor Casework & 5-Stage Path</h3>
+              <h3 style={{ margin: 0 }}><IconTarget size={15} aria-hidden="true" /> Work on a case, step by step</h3>
               {selectedCase && (
                 <Link to={`/case/${selectedCase.work_ref}`} className="link" style={{ fontSize: 13 }}>
-                  Open Case File →
+                  See the case file →
                 </Link>
               )}
             </div>
@@ -341,15 +358,15 @@ export default function SalesforceHub() {
                     {selectedCase.description?.slice(0, 140)}…
                   </div>
                   <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 12 }}>
-                    <span>Exposure: <strong style={{ color: "var(--accent)" }}>{rupees(selectedCase.exposure)}</strong></span>
-                    <span>Tier: <strong>{selectedCase.escalation_tier}</strong></span>
-                    <span>Review Target: <strong>{selectedCase.target_review_date}</strong></span>
+                    <span>Money at risk: <strong style={{ color: "var(--accent)" }}>{rupees(selectedCase.exposure)}</strong></span>
+                    <span>Handled at: <strong>{selectedCase.escalation_tier}</strong></span>
+                    <span>Review by: <strong>{selectedCase.target_review_date}</strong></span>
                   </div>
                 </div>
 
                 {/* 5-Stage Visual Stepper */}
                 <div style={{ marginBottom: 14 }}>
-                  <div className="section-label" style={{ marginBottom: 8 }}>Investigation Path (Salesforce Standard)</div>
+                  <div className="section-label" style={{ marginBottom: 8 }}>The five steps (click to move the case)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
                     {stages.map((st, idx) => {
                       const isCurrent = activeStage === st.stage;
@@ -391,10 +408,10 @@ export default function SalesforceHub() {
                   }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: STAGE_COLORS[activeStage] || "var(--accent)" }}>
-                    Officer Guidance for Stage: {activeStage}
+                    What to do at this step: {activeStage}
                   </div>
-                  <div style={{ fontSize: 13, color: "var(--text)", marginTop: 4, fontStyle: "italic" }}>
-                    "{activeStageGuidance}"
+                  <div style={{ fontSize: 13, color: "var(--text)", marginTop: 4, fontStyle: "italic" }} title={activeStageGuidance}>
+                    "{STAGE_HELP[activeStage] || activeStageGuidance}"
                   </div>
                 </div>
 
@@ -402,7 +419,7 @@ export default function SalesforceHub() {
                 {(activeStage === "Verified" || activeStage === "Closed") && (
                   <div style={{ marginBottom: 16, padding: "10px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" }}>
                     <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                      Officer Ground-Truth Finding (ML Label Output):
+                      What the officer found on site (the computer learns from this):
                     </label>
                     <div style={{ display: "flex", gap: 8 }}>
                       <select
@@ -414,7 +431,7 @@ export default function SalesforceHub() {
                           handleStageUpdate(activeStage, e.target.value);
                         }}
                       >
-                        <option value="">-- Select Officer Finding --</option>
+                        <option value="">-- Choose what was found --</option>
                         {overview.findings?.map((f) => (
                           <option key={f} value={f}>
                             {f}
@@ -434,11 +451,11 @@ export default function SalesforceHub() {
                 {/* Evidence Related List */}
                 <div>
                   <div className="section-label" style={{ marginBottom: 8 }}>
-                    Evidence Items ({selectedEvidence.length} Linked Records)
+                    Clues ({selectedEvidence.length} attached)
                   </div>
                   <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: 6 }}>
                     {selectedEvidence.length === 0 ? (
-                      <div className="muted" style={{ padding: 12, fontSize: 12 }}>No explicit evidence rows loaded.</div>
+                      <div className="muted" style={{ padding: 12, fontSize: 12 }}>No clues were attached to this case.</div>
                     ) : (
                       selectedEvidence.map((ev, i) => (
                         <div
@@ -449,8 +466,8 @@ export default function SalesforceHub() {
                             fontSize: 12,
                           }}
                         >
-                          <span className="fam-tag" style={{ marginRight: 6 }}>{ev.family}</span>
-                          <strong>{ev.signal}:</strong> <span className="muted">{ev.detail}</span>
+                          <span className="fam-tag" style={{ marginRight: 6 }}>{familyName(ev.family)}</span>
+                          <strong title={ev.signal}>{clueName(ev.signal)}:</strong> <span className="muted" title={ev.detail}>{plainEvidence(ev.detail)}</span>
                         </div>
                       ))
                     )}
@@ -458,7 +475,7 @@ export default function SalesforceHub() {
                 </div>
               </>
             ) : (
-              <div className="empty">Select a case below to view and update its Path stage.</div>
+              <div className="empty">Pick a case below to see it and move it to the next step.</div>
             )}
           </div>
 
@@ -466,11 +483,11 @@ export default function SalesforceHub() {
           <div className="card" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 20 }}>🤖</span>
+                <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex" }}><IconAssistant size={19} /></span>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>Agentforce Investigation Assistant</h3>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>Case assistant (Agentforce)</h3>
                   <div className="muted" style={{ fontSize: 11 }}>
-                    Topic: <strong>{overview.agentforce.topic}</strong> (Non-Fraud Protocol)
+                    Topic: <strong>{overview.agentforce.topic}</strong> · never says "fraud"
                   </div>
                 </div>
               </div>
@@ -487,7 +504,7 @@ export default function SalesforceHub() {
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
               {[
                 "Show HIGH priority cases in Bihar",
-                "Which case has the highest exposure?",
+                "Which case has the most money at risk?",
                 "Show cases in Ministry Review tier",
                 `Next step for ${selectedCase?.work_ref || "MP3018356-W86316"}`,
               ].map((p) => (
@@ -540,7 +557,7 @@ export default function SalesforceHub() {
               ))}
               {agentBusy && (
                 <div style={{ alignSelf: "flex-start", color: "var(--text-3)", fontSize: 12, fontStyle: "italic" }}>
-                  Agentforce is querying Investigation Cases…
+                  The assistant is looking through the cases…
                 </div>
               )}
             </div>
@@ -555,7 +572,7 @@ export default function SalesforceHub() {
             >
               <input
                 className="input"
-                placeholder="Ask Agentforce about cases, exposure, states, or next steps…"
+                placeholder="Ask about cases, money at risk, states, or what to do next…"
                 value={agentQuery}
                 onChange={(e) => setAgentQuery(e.target.value)}
                 style={{ flex: 1, fontSize: 13 }}
@@ -572,9 +589,9 @@ export default function SalesforceHub() {
         <div className="card" style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <div>
-              <h3 style={{ margin: 0 }}>📋 Salesforce Case Queue ({filteredCases.length} records)</h3>
+              <h3 style={{ margin: 0 }}><IconQueue size={15} aria-hidden="true" /> All cases in Salesforce ({filteredCases.length})</h3>
               <div className="muted" style={{ fontSize: 12 }}>
-                High-priority investigation leads synchronized to Salesforce `Investigation_Case__c`
+                The most urgent flagged works, copied into Salesforce so people can track them
               </div>
             </div>
 
@@ -582,7 +599,7 @@ export default function SalesforceHub() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <input
                 className="input"
-                placeholder="Search case, agency, state…"
+                placeholder="Search by work, agency, state…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{ width: 200, fontSize: 12, padding: "6px 10px" }}
@@ -594,7 +611,7 @@ export default function SalesforceHub() {
                 onChange={(e) => setStageFilter(e.target.value)}
                 style={{ fontSize: 12, padding: "6px 10px" }}
               >
-                <option value="all">All Stages ({cases.length})</option>
+                <option value="all">All steps ({cases.length})</option>
                 {stages.map((s) => (
                   <option key={s.stage} value={s.stage}>
                     {s.label} ({overview.path.distribution[s.stage] || 0})
@@ -608,7 +625,7 @@ export default function SalesforceHub() {
                 onChange={(e) => setTierFilter(e.target.value)}
                 style={{ fontSize: 12, padding: "6px 10px" }}
               >
-                <option value="all">All Escalation Tiers</option>
+                <option value="all">All levels</option>
                 <option value="District Monitoring">District Monitoring</option>
                 <option value="State Nodal">State Nodal</option>
                 <option value="Ministry Review">Ministry Review</option>
@@ -621,12 +638,12 @@ export default function SalesforceHub() {
             <table className="table" style={{ width: "100%", fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th>Work Reference</th>
-                  <th>State & Agency</th>
-                  <th>Exposure at Risk</th>
-                  <th>Escalation Tier</th>
-                  <th>Stage</th>
-                  <th>Finding</th>
+                  <th>Work number</th>
+                  <th>State & agency</th>
+                  <th>Money at risk</th>
+                  <th>Handled at</th>
+                  <th>Step</th>
+                  <th>What was found</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -683,7 +700,7 @@ export default function SalesforceHub() {
                             selectCaseRecord(c);
                           }}
                         >
-                          Manage Path
+                          Open
                         </button>
                       </td>
                     </tr>
@@ -694,7 +711,7 @@ export default function SalesforceHub() {
           </div>
           {filteredCases.length > 15 && (
             <div className="muted" style={{ textAlign: "center", fontSize: 12, marginTop: 12 }}>
-              Showing top 15 of {filteredCases.length} matching Salesforce investigation cases.
+              Showing the top 15 of {filteredCases.length} matching cases.
             </div>
           )}
         </div>
@@ -704,19 +721,19 @@ export default function SalesforceHub() {
           <div className="card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div>
-                <h3 style={{ margin: 0 }}>📊 Ministry Executive Reports & Dashboard</h3>
+                <h3 style={{ margin: 0 }}><IconReport size={15} aria-hidden="true" /> Summary reports for the Ministry</h3>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Deployed Salesforce Metadata Reports: `Exposure_at_Risk_by_State`, `Cases_by_Escalation_Tier`, `Top_Exposure_by_Agency`
+                  Three reports: money at risk by state, cases by level, and agencies with the most money at risk
                 </div>
               </div>
-              <span className="pill pill-green">Dashboard Deployed</span>
+              <span className="pill pill-green">Report preview</span>
             </div>
 
             <div className="grid cols-3" style={{ gap: 16 }}>
               {/* Report 1: State Exposure */}
               <div style={{ padding: 14, background: "#faf8f2", borderRadius: 8, border: "1px solid #e8e3d6" }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Exposure at Risk by State</div>
-                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>Summary with Horizontal Bar</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Money at risk by state</div>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>Top 5 states</div>
                 {overview.top_states.slice(0, 5).map((st) => (
                   <div key={st.state} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
@@ -732,13 +749,13 @@ export default function SalesforceHub() {
 
               {/* Report 2: Escalation Tiers */}
               <div style={{ padding: 14, background: "#faf8f2", borderRadius: 8, border: "1px solid #e8e3d6" }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Cases by Escalation Tier</div>
-                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>Summary with Donut Chart</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Cases by level</div>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>District, State or Ministry</div>
                 {Object.entries(overview.escalation_tiers).map(([tier, count]) => (
                   <div key={tier} style={{ marginBottom: 10, padding: 8, background: "#ffffff", borderRadius: 6, border: "1px solid #eee" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                       <strong>{tier}</strong>
-                      <span className="fam-tag">{count} Cases</span>
+                      <span className="fam-tag">{count} cases</span>
                     </div>
                   </div>
                 ))}
@@ -746,15 +763,15 @@ export default function SalesforceHub() {
 
               {/* Report 3: Deployed Metadata Info */}
               <div style={{ padding: 14, background: "#faf8f2", borderRadius: 8, border: "1px solid #e8e3d6" }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Salesforce Deployment Artifacts</div>
-                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>Verified in org `mplads`</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>What is set up in Salesforce</div>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>In the account "mplads" (technical names)</div>
                 <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--text-2)", lineHeight: 1.6 }}>
                   <li><strong>App:</strong> MPLADS Investigations</li>
-                  <li><strong>Custom Object 1:</strong> Investigation_Case__c</li>
-                  <li><strong>Custom Object 2:</strong> Evidence__c</li>
-                  <li><strong>Path Assistant:</strong> Investigation_Path</li>
+                  <li><strong>Case records:</strong> Investigation_Case__c</li>
+                  <li><strong>Clue records:</strong> Evidence__c</li>
+                  <li><strong>Step guide:</strong> Investigation_Path</li>
                   <li><strong>Dashboard:</strong> MPLADS Executive Summary</li>
-                  <li><strong>Agentforce Topic:</strong> Investigation Lookup</li>
+                  <li><strong>Assistant topic:</strong> Investigation Lookup</li>
                 </ul>
               </div>
             </div>

@@ -5,6 +5,8 @@ import { Loading, Topbar } from "../components/Bits.jsx";
 import { Reveal } from "../components/Reveal.jsx";
 import { sev } from "../severity.js";
 import { useDebounced } from "../hooks.js";
+import { IconField } from "../components/icons.jsx";
+import { rotaBound } from "../plain.js";
 
 /**
  * The audit plan with names against it.
@@ -62,18 +64,18 @@ export default function FieldRota() {
   }, [failed, attempt]);
 
   if (!data && busy) {
-    return (<><Topbar title="Field Rota" /><div className="content"><Loading /></div></>);
+    return (<><Topbar title="Who Goes Where" /><div className="content"><Loading /></div></>);
   }
   if (!data && failed) {
     return (
       <>
-        <Topbar title="Field Rota" />
+        <Topbar title="Who Goes Where" />
         <div className="content">
           <div className="empty">
-            <p><b>Could not reach the API.</b> {failed}</p>
+            <p><b>Could not reach the system.</b> {failed}</p>
             <p className="muted">
-              The rota is computed server-side. If the API is still starting, this clears
-              on its own; otherwise start it with{" "}<code>{API_START_HINT}</code>.
+              The schedule is worked out on the server. If it is still starting, this fixes
+              itself; otherwise start it with{" "}<code>{API_START_HINT}</code>.
             </p>
             <button className="btn" onClick={() => setAttempt((n) => n + 1)}>
               Try again
@@ -86,10 +88,10 @@ export default function FieldRota() {
   if (!data?.available) {
     return (
       <>
-        <Topbar title="Field Rota" />
+        <Topbar title="Who Goes Where" />
         <div className="content">
           <div className="empty">
-            <p>{data?.note || "No plan available. Run the pipeline first."}</p>
+            <p>{data?.note || "No plan is available yet. The checks need to be run first."}</p>
             <button className="btn" onClick={() => setAttempt((n) => n + 1)}>
               Try again
             </button>
@@ -105,26 +107,26 @@ export default function FieldRota() {
   return (
     <>
       <Topbar
-        title="Field Rota"
-        sub="Who goes where, and on which day"
+        title="Who Goes Where"
+        sub="The visit plan shared out between officers — who visits which office, on which day"
         right={
           <span className="pill">
-            {num(data.trips)} trips · {num(data.works)} works
+            {num(data.trips)} office visits · {num(data.works)} works
           </span>
         }
       />
 
       <div className="content">
         <div className="hitl">
-          <span>◈</span>
-          <span><strong>A draft rota, not a posting order.</strong> {data.contract}</span>
+          <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconField size={16} /></span>
+          <span><strong>A draft schedule, not an order.</strong> A supervisor should change it as needed — the computer does not know who is on leave, which places are near each other, or who already knows an office. It does not blame any work, office or person.</span>
         </div>
 
         {/* ------------------------------------------------------------- the dials */}
         <div className="card plan-budget">
           <div className="plan-budget-head">
             <div>
-              <div className="section-label">Auditor-days available</div>
+              <div className="section-label">Officer-days available</div>
               <div className="plan-budget-value">{budget} days</div>
             </div>
             <div className="plan-budget-presets">
@@ -143,13 +145,13 @@ export default function FieldRota() {
             type="range" min={5} max={250} step={5} value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
             className="plan-slider"
-            aria-label="Auditor-days available"
+            aria-label="Officer-days available"
           />
 
           <div className="plan-budget-head" style={{ marginTop: 18 }}>
             <div>
-              <div className="section-label">Auditors on the team</div>
-              <div className="plan-budget-value">{auditors} auditors</div>
+              <div className="section-label">Officers on the team</div>
+              <div className="plan-budget-value">{auditors} officers</div>
             </div>
             <div className="plan-budget-presets">
               {TEAM_PRESETS.map((preset) => (
@@ -163,29 +165,33 @@ export default function FieldRota() {
               ))}
             </div>
           </div>
-          <p className="plan-cost-note">{data.constraint}</p>
+          <p className="plan-cost-note" title={data.constraint}>
+            One rule is never broken: all the works at one office go to the same officer. The plan
+            saves time because the second work at an office is quick when someone is already
+            there — sending two people would pay for that trip twice.
+          </p>
         </div>
 
         {/* ------------------------------------------------------------ headline */}
         <Reveal>
           <div className="grid cols-4 plan-figures">
             <div className="card stat">
-              <div className="label">Busiest round</div>
+              <div className="label">Busiest officer</div>
               <div className="value accent">{balance.busiest_days}</div>
-              <div className="foot">auditor-days · quietest {balance.quietest_days}</div>
+              <div className="foot">days of work · least busy {balance.quietest_days}</div>
             </div>
             <div className="card stat">
-              <div className="label">Spread across the team</div>
+              <div className="label">Difference in workload</div>
               <div className="value">{balance.spread_days}</div>
-              <div className="foot">days between busiest and quietest</div>
+              <div className="foot">days between the busiest and least busy</div>
             </div>
             <div className="card stat">
-              <div className="label">Agency visits</div>
+              <div className="label">Office visits</div>
               <div className="value">{num(data.trips)}</div>
-              <div className="foot">never split between two auditors</div>
+              <div className="foot">each one handled by just one officer</div>
             </div>
             <div className="card stat">
-              <div className="label">Exposure covered</div>
+              <div className="label">Money at risk checked</div>
               <div className="value" style={{ color: sev("LOW").ink }}>
                 {rupees(data.exposure_rupees)}
               </div>
@@ -196,7 +202,7 @@ export default function FieldRota() {
 
         {/* ------------------------------------------------------------- balance */}
         <Reveal delay={70}>
-          <div className="section-title">How even the rota actually is</div>
+          <div className="section-title">How fairly the work is shared</div>
           <div className="card">
             <div className="rota-bars">
               {people.map((person) => (
@@ -219,13 +225,18 @@ export default function FieldRota() {
                 </div>
               ))}
             </div>
-            <p className="plan-cost-note">{balance.note}</p>
+            <p className="plan-cost-note" title={balance.note}>
+              The longest trips are handed out first, each to whoever has the least work so far.
+              There is no quick way to find the perfect split, but this way is proven never to give
+              the busiest officer more than {rotaBound(askedAuditors).toFixed(2)} times what the
+              perfect split would. The real difference it reached is shown above.
+            </p>
             {data.idle?.length > 0 && (
               <p className="plan-cost-note">
                 <b>{data.idle.join(", ")}</b> {data.idle.length === 1 ? "has" : "have"} no
-                trips at this team size. That is reported rather than fixed by splitting an
-                agency in two — a rota that looks complete and costs more than the plan
-                allowed is worse than one with a gap in it.
+                visits with this many officers. We show that honestly instead of splitting an
+                office between two people — a schedule that looks full but takes more days than
+                the plan allowed is worse than one with a gap.
               </p>
             )}
           </div>
@@ -233,7 +244,7 @@ export default function FieldRota() {
 
         {/* --------------------------------------------------------- the rounds */}
         <Reveal delay={130}>
-          <div className="section-title">Each auditor's round</div>
+          <div className="section-title">Each officer's schedule</div>
           <div className="grid cols-2 rota-grid">
             {people.map((person) => {
               const expanded = open === person.auditor;
@@ -247,9 +258,9 @@ export default function FieldRota() {
                     <div>
                       <div className="rota-card-name">{person.label}</div>
                       <div className="rota-card-meta">
-                        {num(person.agency_visits)} visits · {num(person.works)} works ·{" "}
-                        {person.auditor_days} auditor-days over {person.calendar_days}{" "}
-                        calendar days
+                        {num(person.agency_visits)} office visits · {num(person.works)} works ·{" "}
+                        {person.auditor_days} days of work spread over {person.calendar_days}{" "}
+                        days
                       </div>
                       <div className="rota-card-meta">
                         {person.states.join(", ") || "—"}
@@ -257,7 +268,7 @@ export default function FieldRota() {
                     </div>
                     <div className="rota-card-figure">
                       {rupees(person.exposure_rupees)}
-                      <span>{expanded ? "hide" : "show"} the round</span>
+                      <span>{expanded ? "hide" : "show"} the schedule</span>
                     </div>
                   </button>
 
@@ -265,7 +276,7 @@ export default function FieldRota() {
                     <div className="rota-schedule">
                       {person.schedule.length === 0 && (
                         <div className="empty" style={{ padding: 14 }}>
-                          Nothing was allocated at this team size.
+                          Nothing was given to this officer with this many people on the team.
                         </div>
                       )}
                       {person.schedule.map((visit, index) => (
@@ -284,7 +295,7 @@ export default function FieldRota() {
                           <div className="rota-visit-meta">
                             {visit.state} · {visit.work_count} work
                             {visit.work_count === 1 ? "" : "s"} · {visit.cost_days}{" "}
-                            auditor-days · {rupees(visit.exposure_rupees)}
+                            days · {rupees(visit.exposure_rupees)}
                           </div>
                           <ul className="rota-works">
                             {visit.works.map((work) => (
@@ -308,13 +319,12 @@ export default function FieldRota() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Field day pack (PDF)
+                        Printable visit sheet (PDF)
                       </a>
                       <p className="plan-cost-note">
-                        The itinerary as a document to carry, with a box to tick against
-                        every work and the cost model printed on it — an officer who finds
-                        the assumption wrong in the field is the fastest way it ever gets
-                        corrected.
+                        The schedule on paper to carry along, with a box to tick for every
+                        work and the time estimates printed on it — so an officer who finds
+                        the estimates wrong on the ground can say so.
                       </p>
                     </div>
                   )}

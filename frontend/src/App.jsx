@@ -15,6 +15,7 @@ import AuditPlan from "./pages/AuditPlan.jsx";
 import FieldRota from "./pages/FieldRota.jsx";
 import AgencyDossier from "./pages/AgencyDossier.jsx";
 import Scoreboard from "./pages/Scoreboard.jsx";
+import Workflow from "./pages/Workflow.jsx";
 import { RoleProvider, RoleSwitcher, useRole } from "./RoleContext.jsx";
 import { useScrollProgress } from "./hooks.js";
 import { LanguageSwitcher } from "./I18nContext.jsx";
@@ -23,6 +24,17 @@ import Logo from "./components/Logo.jsx";
 import Login from "./pages/Login.jsx";
 import { useAuth } from "./AuthContext.jsx";
 import { Topbar } from "./components/Bits.jsx";
+import { SECTIONS, resolveRoute } from "./nav.js";
+import {
+  Breadcrumbs,
+  DisplayControls,
+  GovFooter,
+  SystemStatus,
+  IdentityStrip,
+  Masthead,
+  PrimaryNav,
+  PrototypeNotice,
+} from "./components/GovChrome.jsx";
 import { useI18n } from "./I18nContext.jsx";
 
 const NAV = [
@@ -71,20 +83,25 @@ function Sidebar() {
         <Logo size={38} className="brand-logo" />
         <div>
           <div className="brand-name">MPLADS Intelligence</div>
-          <div className="brand-sub">{t("shell.brandSub", "Forensic Monitoring")}</div>
+          <div className="brand-sub">{t("shell.brandSub", "Public Works Monitoring")}</div>
         </div>
       </NavLink>
 
-      {NAV.map((group) => (
-        <div key={group.key}>
-          <div className="nav-group-label">{t(group.key, group.label)}</div>
-          {group.items.map((item) => (
-            <NavLink key={item.to} to={item.to} className={link}>
-              <span className="ic">{item.ic}</span> {t(item.key, item.label)}
-            </NavLink>
-          ))}
-        </div>
-      ))}
+      {/* A real navigation landmark, so "next landmark" reaches the section
+          links rather than skipping from the primary nav to the page body. */}
+      <nav className="sidebar-nav-scroll" aria-label={t("gov.sectionLinks", "Sections in this module")}>
+        {SECTIONS.map((group) => (
+          <div key={group.id}>
+            <div className="nav-group-label"><span className="nav-step" aria-hidden="true">{group.step}</span>{t(group.key, group.label)}</div>
+            {group.items.map((item) => (
+              <NavLink key={item.to} to={item.to} className={link}>
+                <span className="ic"><item.Icon size={15} /></span>
+                {t(item.key, item.label)}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
 
       <div className="sidebar-foot">
         {meta && (
@@ -94,11 +111,11 @@ function Sidebar() {
             {scope && <> · {scope}</>}
           </div>
         )}
-        {t("shell.chain", "Learn, Compare, Predict, Explain, Prioritise")}
+        {t("shell.chain", "Learn what is normal · Compare · Predict · Explain · Put in order")}
         <br />
         <br />
         {t("shell.leadsNotVerdicts",
-           "Investigation leads, not fraud verdicts. A human decides every action.")}
+           "These are works worth checking — not proof that anyone did wrong. A person always decides what happens next.")}
       </div>
     </aside>
   );
@@ -119,6 +136,25 @@ function ScrollReset() {
   return null;
 }
 
+/**
+ * Name the browser tab after the page, the way a deployed service does — a tab
+ * strip of eight identical "MPLADS Intelligence" tabs is the clearest sign of a
+ * demo. Reads the same route table as the navigation.
+ */
+function DocumentTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const suite = "MPLADS eSAKSHI";
+    let name;
+    if (pathname === "/") name = "Public Works Monitoring";
+    else if (pathname === "/login") name = "Officer Sign-In";
+    else if (pathname.startsWith("/case/")) name = `Case File ${decodeURIComponent(pathname.slice(6))}`;
+    else name = resolveRoute(pathname)?.label || "Page not found";
+    document.title = `${name} · ${suite}`;
+  }, [pathname]);
+  return null;
+}
+
 /** An unknown URL used to render the shell with an empty body and no explanation. */
 function NotFound() {
   const { t } = useI18n();
@@ -130,7 +166,7 @@ function NotFound() {
         <div className="empty">
           {t("common.notFoundBody", "There is nothing at this address.")}{" "}
           <Link to="/overview" className="link">
-            {t("common.notFoundCta", "Go to the National Overview")}
+            {t("common.notFoundCta", "Go to the Detection Centre")}
           </Link>
         </div>
       </div>
@@ -156,16 +192,16 @@ function ScopeNote() {
   if (!user) {
     return (
       <span className="muted scope-note">
-        Changing the stakeholder view reframes the same evidence — it grants nothing.
-        Sign in to record a field verification.
+        Changing the view shows the same facts the way a different official would see them —
+        it does not give you any extra access. Sign in to write a site visit report.
       </span>
     );
   }
   return (
     <span className="muted scope-note">
       Signed in as <b>{user.role}</b>
-      {user.scope ? <> · limited to <b>{user.scope}</b></> : <> · unrestricted jurisdiction</>}
-      {" "}· every action is written to the audit log.
+      {user.scope ? <> · can only see <b>{user.scope}</b></> : <> · can see all of India</>}
+      {" "}· everything you do is recorded in a log that cannot be changed.
     </span>
   );
 }
@@ -178,29 +214,47 @@ function Shell() {
   const isLogin = pathname === "/login";
 
   return (
-    <>
+    <div className="gov-page">
+      <a className="skip-link" href="#main-content">
+        {t("a11y.skip", "Skip to main content")}
+      </a>
       <div className="scroll-progress" style={{ width: `${progress * 100}%` }} />
       <ScrollReset />
+      <DocumentTitle />
+
+      <IdentityStrip />
+      <Masthead
+        utility={
+          <>
+            <SystemStatus />
+            <DisplayControls />
+            <LanguageSwitcher />
+            <SessionChip />
+          </>
+        }
+      />
+      <PrimaryNav />
+
       {isLanding || isLogin ? (
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-        </Routes>
+        <main id="main-content" tabIndex={-1}>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+          </Routes>
+        </main>
       ) : (
         <div className="shell">
           <Sidebar />
           <div className="main">
             <div className="role-bar">
-              <span className="muted" style={{ fontSize: 12 }}>
-                {t("shell.stakeholder", "Stakeholder view")}
+              <span className="role-bar-label">
+                {t("shell.stakeholder", "View as")}
               </span>
               <RoleSwitcher />
-              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-                <LanguageSwitcher />
-                <SessionChip />
-              </div>
               <ScopeNote />
             </div>
+            <Breadcrumbs />
+            <main id="main-content" tabIndex={-1}>
             <Routes>
               <Route path="/overview" element={<Overview />} />
               <Route path="/worklist" element={<Worklist />} />
@@ -215,15 +269,20 @@ function Shell() {
               <Route path="/compliance" element={<Compliance />} />
               <Route path="/archetypes" element={<Archetypes />} />
               <Route path="/transparency" element={<Transparency />} />
+              <Route path="/workflow" element={<Workflow />} />
               <Route path="/how" element={<HowItWorks />} />
               <Route path="/case/:ref" element={<CaseFile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </main>
             <Chat />
           </div>
         </div>
       )}
-    </>
+
+      <PrototypeNotice />
+      <GovFooter />
+    </div>
   );
 }
 

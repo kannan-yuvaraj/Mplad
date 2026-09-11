@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useI18n } from "../I18nContext.jsx";
+import { IconAssistant, IconClose, IconMic } from "./icons.jsx";
 
 /**
  * The assistant panel.
@@ -117,7 +118,7 @@ function render(text, nav) {
     if (s.startsWith("• ") || s.startsWith("- ")) {
       out.push(
         <div key={`li-${i}`} className="chat-li">
-          <span className="chat-li-mark" aria-hidden="true">◈</span>
+          <span className="chat-li-mark" aria-hidden="true">▪</span>
           <span>{inline(s.slice(2), nav, `li${i}`)}</span>
         </div>
       );
@@ -252,7 +253,7 @@ export default function Chat() {
         role: "assistant",
         source: "error",
         content: t("chat.unreachable",
-          "I could not reach the assistant service. Check that the API is running on port 8000."),
+          "I could not reach the assistant. The system may still be starting — try again in a moment."),
       }]);
     } finally {
       setBusy(false);
@@ -308,7 +309,7 @@ export default function Chat() {
       setCopied(i);
       setTimeout(() => setCopied((c) => (c === i ? null : c)), 1800);
     } catch {
-      setVoiceError(t("chat.copyFailed", "The browser blocked copying."));
+      setVoiceError(t("chat.copyFailed", "The browser did not allow copying."));
     }
   }
 
@@ -320,7 +321,7 @@ export default function Chat() {
       return `## ${who}\n\n${x.content}${trace}`;
     }).join("\n\n---\n\n");
     const header = `# MPLADS assistant transcript\n\n_${new Date().toISOString()}_\n\n` +
-      "Every figure below came from a read-only lookup against the computed artifacts.\n\n---\n\n";
+      "Every number below was looked up in the results the system had already worked out — nothing was changed or made up.\n\n---\n\n";
     const url = URL.createObjectURL(new Blob([header + body], { type: "text/markdown" }));
     const a = document.createElement("a");
     a.href = url;
@@ -339,11 +340,11 @@ export default function Chat() {
       <button
         className={"chat-fab" + (open ? " open" : "")}
         onClick={() => setOpen((o) => !o)}
-        aria-label={t("chat.open", "Ask Agentforce")}
+        aria-label={t("chat.open", "Ask a question")}
         style={{ display: "flex", alignItems: "center", gap: 8 }}
       >
-        <span className="chat-fab-icon" aria-hidden="true">{open ? "✕" : "⚡"}</span>
-        {!open && <span className="chat-fab-label">Agentforce Assistant</span>}
+        <span className="chat-fab-icon" aria-hidden="true">{open ? <IconClose size={16} /> : <IconAssistant size={16} />}</span>
+        {!open && <span className="chat-fab-label">Ask the assistant</span>}
       </button>
 
       {open && (
@@ -351,7 +352,7 @@ export default function Chat() {
              aria-label="Agentforce Assistant">
           <div className="chat-head">
             <div className="chat-head-left">
-              <span className="chat-avatar" aria-hidden="true" style={{ background: "var(--accent, #a8452a)", color: "#fff" }}>⚡</span>
+              <span className="chat-avatar" aria-hidden="true"><IconAssistant size={15} /></span>
               <div>
                 <div className="chat-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span>Agentforce Assistant</span>
@@ -369,9 +370,9 @@ export default function Chat() {
               {turns.length > 0 && (
                 <>
                   <button className="chat-head-btn" onClick={exportTranscript}
-                          title={t("chat.export", "Export transcript")}>⭳</button>
+                          title={t("chat.export", "Save the conversation")}>⭳</button>
                   <button className="chat-head-btn" onClick={() => setTurns([])}
-                          title={t("chat.clear", "Clear conversation")}>⌫</button>
+                          title={t("chat.clear", "Clear the conversation")}>⌫</button>
                 </>
               )}
               <button className="chat-head-btn" onClick={() => setWide((w) => !w)}
@@ -388,10 +389,10 @@ export default function Chat() {
               <div className="chat-intro">
                 <p className="chat-intro-lead">
                   {t("chat.introLead",
-                     "I answer only by looking things up in the computed results. I have no independent knowledge of this data and cannot do arithmetic, so I cannot invent a figure — and I show you which tool produced every answer.")}
+                     "I only answer by looking things up in the results the system has already worked out. I don't know anything else about this data and I don't do my own sums, so I can't make up a number — and I show you where each answer came from.")}
                 </p>
 
-                <div className="chat-label">{t("chat.forThisScreen", "About this screen")}</div>
+                <div className="chat-label">{t("chat.forThisScreen", "About this page")}</div>
                 <div className="chat-chips">
                   {contextPrompts.map((p) => (
                     <button key={p} className="chat-chip context" onClick={() => ask(p)}>
@@ -429,7 +430,7 @@ export default function Chat() {
             {turns.map((turn, i) => (
               <div key={i} className={"chat-turn " + turn.role}>
                 <div className="chat-row">
-                  {turn.role === "assistant" && <span className="chat-turn-avatar" aria-hidden="true">◈</span>}
+                  {turn.role === "assistant" && <span className="chat-turn-avatar" aria-hidden="true"><IconAssistant size={12} /></span>}
                   <div className={"chat-bubble" + (turn.source === "error" ? " error" : "")}>
                     {turn.role === "assistant" ? render(turn.content, nav) : turn.content}
 
@@ -461,7 +462,7 @@ export default function Chat() {
             {busy && (
               <div className="chat-turn assistant">
                 <div className="chat-row">
-                  <span className="chat-turn-avatar" aria-hidden="true">◈</span>
+                  <span className="chat-turn-avatar" aria-hidden="true"><IconAssistant size={12} /></span>
                   <div className="chat-bubble chat-typing">
                     <i /><i /><i />
                     <span className="chat-typing-text">{t("chat.working", "Looking it up…")}</span>
@@ -478,8 +479,8 @@ export default function Chat() {
                     className={"chat-voice" + (listening ? " listening" : "")}
                     onClick={toggleListen}
                     title={listening ? t("chat.stopListening", "Stop listening")
-                                     : t("chat.speak", "Ask by voice")}>
-              {listening ? <span className="chat-voice-pulse" /> : "🎙"}
+                                     : t("chat.speak", "Ask by speaking")}>
+              {listening ? <span className="chat-voice-pulse" /> : <IconMic size={15} />}
             </button>
             <input
               className="input chat-input"

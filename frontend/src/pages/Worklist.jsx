@@ -4,6 +4,7 @@ import { api, num, rupees } from "../api.js";
 import { Band, Hitl, SkeletonRows, Topbar } from "../components/Bits.jsx";
 import { useRole } from "../RoleContext.jsx";
 import { useI18n } from "../I18nContext.jsx";
+import { clueName, plainEvidence } from "../plain.js";
 
 const PAGE = 25;
 
@@ -18,7 +19,7 @@ function RowDetail({ workRef, onOpen, t }) {
   }, [workRef]);
 
   if (c === null) return <div className="row-detail-inner"><SkeletonRows rows={2} height={14} /></div>;
-  if (c === false) return <div className="row-detail-inner muted">Could not load this case.</div>;
+  if (c === false) return <div className="row-detail-inner muted">Could not load this work.</div>;
 
   const id = c.identity;
   return (
@@ -29,19 +30,19 @@ function RowDetail({ workRef, onOpen, t }) {
           <div className="v">{c.archetype?.label || "—"}</div>
         </div>
         <div className="detail-item">
-          <div className="k">{t("case.peerSize", "Peer group size")}</div>
+          <div className="k">{t("case.peerSize", "Number of similar works")}</div>
           <div className="v">{num(c.peer_context?.group_size)} {t("common.works", "works")}</div>
         </div>
         <div className="detail-item">
-          <div className="k">{t("case.amountPercentile", "Amount percentile")}</div>
+          <div className="k">{t("case.amountPercentile", "Costs more than")}</div>
           <div className="v">
             {c.peer_context?.amount_percentile != null
-              ? `${Math.round(c.peer_context.amount_percentile * 100)}th`
+              ? `${Math.round(c.peer_context.amount_percentile * 100)} in 100 similar works`
               : "—"}
           </div>
         </div>
         <div className="detail-item">
-          <div className="k">{t("case.completionRisk", "Completion risk")}</div>
+          <div className="k">{t("case.completionRisk", "Chance it may not get finished")}</div>
           <div className="v">{Math.round((c.risk?.completion_risk || 0) * 100)}%</div>
         </div>
         <div className="detail-item">
@@ -49,7 +50,7 @@ function RowDetail({ workRef, onOpen, t }) {
           <div className="v">{c.early_warning?.level || "LOW"}</div>
         </div>
         <div className="detail-item">
-          <div className="k">Implementing agency</div>
+          <div className="k">Agency building it</div>
           <div className="v" style={{ fontSize: 12.5 }}>{id.implementing_agency || "—"}</div>
         </div>
       </div>
@@ -57,11 +58,11 @@ function RowDetail({ workRef, onOpen, t }) {
       <div className="detail-evidence">
         <div className="k" style={{ fontSize: 9.5, textTransform: "uppercase",
           letterSpacing: 1, color: "var(--text-3)", fontWeight: 700, marginBottom: 6 }}>
-          {t("case.evidence", "Evidence — why this was surfaced")}
+          {t("case.evidence", "Why the computer flagged this work")}
         </div>
         <ul>
           {(c.evidence || []).map((e, i) => (
-            <li key={i}><b>{e.signal}</b> — {e.detail}</li>
+            <li key={i} title={`${e.signal} — ${e.detail}`}><b>{clueName(e.signal)}</b> — {plainEvidence(e.detail)}</li>
           ))}
         </ul>
       </div>
@@ -111,29 +112,29 @@ export default function Worklist() {
   return (
     <>
       <Topbar
-        title={t("worklist.title", "Investigation Queue")}
-        sub={t("worklist.sub", "Ranked by Audit-ROI = priority × exposure × corroboration")}
-        right={<span className="pill">{num(total)} {t("common.leads", "leads")}</span>}
+        title={t("worklist.title", "Works to Check")}
+        sub={t("worklist.sub", "Most worth checking first — a work comes higher the more public money a check could protect and the more clues agree")}
+        right={<span className="pill">{num(total)} {t("common.leads", "flagged works")}</span>}
       />
       <div className="content">
         <Hitl />
 
         <div className="toolbar">
-          <input className="input" placeholder={t("worklist.search", "Search description or implementing agency")}
+          <input className="input" placeholder={t("worklist.search", "Search by what the work is, or who is building it")}
             value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="select" value={state} onChange={(e) => setState(e.target.value)}>
             <option value="">{t("worklist.allStates", "All states")}</option>
             {states.map((s) => <option key={s.state_name} value={s.state_name}>{s.state_name}</option>)}
           </select>
           <select className="select" value={band} onChange={(e) => setBand(e.target.value)}>
-            <option value="">{t("worklist.allBands", "All bands")}</option>
-            <option value="HIGH">HIGH · 3+</option>
-            <option value="MEDIUM">MEDIUM · 2</option>
+            <option value="">{t("worklist.allBands", "All clue levels")}</option>
+            <option value="HIGH">HIGH · 3+ clues agree</option>
+            <option value="MEDIUM">MEDIUM · 2 clues agree</option>
           </select>
         </div>
 
         {!data ? <SkeletonRows rows={8} /> : data.items.length === 0 ? (
-          <div className="empty">{t("worklist.empty", "No leads match these filters.")}</div>
+          <div className="empty">{t("worklist.empty", "No works match these filters.")}</div>
         ) : (
           <>
             <div className="table-wrap">
@@ -143,10 +144,10 @@ export default function Worklist() {
                     <th style={{ width: 60 }}>#</th>
                     <th>{t("worklist.work", "Work")}</th>
                     <th>{t("worklist.state", "State")}</th>
-                    <th>{t("worklist.confidence", "Confidence")}</th>
+                    <th>{t("worklist.confidence", "Clue strength")}</th>
                     <th className="num">{t("worklist.amount", "Amount")}</th>
-                    <th className="num">{t("overview.exposure", "Exposure")}</th>
-                    <th className="num">{t("worklist.auditRoi", "Audit-ROI")}</th>
+                    <th className="num">{t("overview.exposure", "Money at risk")}</th>
+                    <th className="num">{t("worklist.auditRoi", "Worth checking")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -162,7 +163,7 @@ export default function Worklist() {
                           <td>
                             <div className="desc-cell">{r.description || "—"}</div>
                             <div className="muted" style={{ fontSize: 11 }}>
-                              {r.archetype} · {r.n_families} {t("case.families", "families")}
+                              {r.archetype} · {r.n_families} {t("case.families", "kinds of clues")}
                             </div>
                           </td>
                           <td className="muted">{r.state}</td>

@@ -4,6 +4,7 @@ import { api, num, rupees } from "../api.js";
 import { Loading, Topbar } from "../components/Bits.jsx";
 import { riskFill } from "../severity.js";
 import { useI18n } from "../I18nContext.jsx";
+import { IconArchetype } from "../components/icons.jsx";
 
 function Bar({ value, color }) {
   return (
@@ -20,25 +21,25 @@ export default function Archetypes() {
   const { t } = useI18n();
   useEffect(() => { api.archetypes().then(setA).catch(console.error); }, []);
 
-  if (!a) return (<><Topbar title={t("archetypes.title", "Work Archetypes")} /><div className="content"><Loading /></div></>);
+  if (!a) return (<><Topbar title={t("archetypes.title", "Work Types")} /><div className="content"><Loading /></div></>);
 
   const interpretable = a.filter((x) => x.interpretable !== false).length;
   const maxWorks = Math.max(...a.map((x) => x.n_works));
 
   return (
     <>
-      <Topbar title={t("archetypes.title", "Work Archetypes")}
-        sub={t("archetypes.sub", "Work types the system discovered on its own from the descriptions")}
+      <Topbar title={t("archetypes.title", "Work Types")}
+        sub={t("archetypes.sub", "Kinds of work the computer worked out on its own, just by reading the descriptions")}
         right={<span className="pill">{a.length} · {interpretable} {t("archetypes.named", "named")}</span>} />
       <div className="content">
         <div className="hitl">
-          <span>🧩</span>
+          <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconArchetype size={16} /></span>
           <span>
-            Nobody told the system these categories exist. It read every description, turned
-            each into a 384-number semantic fingerprint, and grouped similar ones. Labels are
-            the most distinctive terms in each group — <strong>generated from the actual
-            cluster contents</strong>. Where a group turns out to be held together by
-            language rather than work type, we say so instead of inventing a name.
+            Nobody gave the computer this list. It read every description, worked out what
+            each one means, and put works that mean the same thing together. Each group's name
+            is made from the words that stand out most in it — <strong>taken from the works
+            actually in the group</strong>. Where a group is held together by the language it is
+            written in rather than the kind of work, we say so instead of making up a name.
           </span>
         </div>
 
@@ -56,8 +57,8 @@ export default function Archetypes() {
                       {uninterpretable
                         ? <span className="muted">{x.label}</span>
                         : x.label}
-                      {uninterpretable && <span className="fam-tag">{t("archetypes.notInterpretable", "not interpretable")}</span>}
-                      {x.note && !uninterpretable && <span className="fam-tag">language-mixed</span>}
+                      {uninterpretable && <span className="fam-tag">{t("archetypes.notInterpretable", "no clear meaning")}</span>}
+                      {x.note && !uninterpretable && <span className="fam-tag">mixed by language</span>}
                     </div>
                     <div className="arch-sub">
                       {num(x.n_works)} works · {x.states} states · {num(x.agencies)} agencies
@@ -68,17 +69,17 @@ export default function Archetypes() {
 
                   <div className="arch-metrics">
                     <div className="arch-metric">
-                      <span className="m-label">{t("archetypes.medianSize", "Median size")}</span>
+                      <span className="m-label">{t("archetypes.medianSize", "Typical cost")}</span>
                       <span className="m-value">{rupees(x.median_amount)}</span>
                     </div>
                     <div className="arch-metric">
-                      <span className="m-label">{t("archetypes.completedPct", "Completed")}</span>
+                      <span className="m-label">{t("archetypes.completedPct", "Finished")}</span>
                       <span className="m-value">{(x.completion_rate * 100).toFixed(0)}%</span>
                     </div>
                     <div className="arch-metric">
-                      <span className="m-label">{t("archetypes.typicalDuration", "Typical duration")}</span>
+                      <span className="m-label">{t("archetypes.typicalDuration", "Usual time taken")}</span>
                       <span className="m-value">
-                        {x.median_days_to_complete ? `${Math.round(x.median_days_to_complete)}d` : "—"}
+                        {x.median_days_to_complete ? `${Math.round(x.median_days_to_complete)} days` : "—"}
                       </span>
                     </div>
                     <div className="arch-metric">
@@ -88,7 +89,7 @@ export default function Archetypes() {
                       </span>
                     </div>
                     <div className="arch-metric">
-                      <span className="m-label">₹ Exposure</span>
+                      <span className="m-label">₹ Money at risk</span>
                       <span className="m-value">{rupees(x.total_exposure)}</span>
                     </div>
                   </div>
@@ -97,11 +98,11 @@ export default function Archetypes() {
 
                 {isOpen && (
                   <div className="arch-body">
-                    {x.note && <p className="arch-note">⚠ {x.note}</p>}
+                    {x.note && <p className="arch-note" title={x.note}>⚠ {x.note.startsWith("Grouped partly by language") ? "Grouped partly by language: these descriptions are written in Hindi or Gujarati using English letters, so the group is about how they are written as well as the kind of work." : x.note}</p>}
                     {x.top_terms && (
                       <div>
                         <div className="m-label" style={{ marginBottom: 6 }}>
-                          {t("archetypes.distinctiveTerms", "Distinctive terms in this cluster")}
+                          {t("archetypes.distinctiveTerms", "Words that stand out in this group")}
                         </div>
                         <div className="chips">
                           {x.top_terms.split(",").slice(0, 8).map((t, ti) => (
@@ -112,7 +113,7 @@ export default function Archetypes() {
                     )}
                     <button className="btn" style={{ marginTop: 14 }}
                       onClick={(e) => { e.stopPropagation(); nav("/worklist"); }}>
-                      {t("archetypes.viewFlagged", "View flagged works in the queue")} →
+                      {t("archetypes.viewFlagged", "See the flagged works")} →
                     </button>
                   </div>
                 )}

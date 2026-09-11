@@ -9,6 +9,7 @@ import { Loading, Topbar } from "../components/Bits.jsx";
 import { Reveal } from "../components/Reveal.jsx";
 import { sev } from "../severity.js";
 import { useDebounced } from "../hooks.js";
+import { IconReport } from "../components/icons.jsx";
 
 /**
  * The audit plan: where to send a finite number of auditor-days.
@@ -25,17 +26,27 @@ import { useDebounced } from "../hooks.js";
 
 const STRATEGY_NOTE = {
   "Optimised plan":
-    "Travel-aware. Picks the case buying the most exposure per auditor-day, then keeps "
-    + "picking at that agency while the auditor is already there.",
+    "Thinks about travel. It picks the work that protects the most money for each day spent, "
+    + "then checks more works at that same office while the officer is already there.",
   "Audit-ROI ranking":
-    "Our own ranking, worked top down. Strong — but it sends an auditor across the country.",
+    "Our own list, followed from the top. Good — but it sends the officer all over the country.",
   "Biggest cheques first":
-    "The intuitive approach. Big works are not the same as risky works.",
+    "What most people would try first. But a big work is not the same as a risky work.",
   "Highest risk first":
-    "Pure risk score, ignoring money. Covers many works and very little exposure.",
+    "Only looks at risk and ignores money. Checks many works but protects very little money.",
   "Random selection":
-    "No system at all. The floor everything else has to beat.",
+    "Picking works by chance. Every other way has to do better than this.",
 };
+
+/** The strategy names the engine returns, said plainly. The engine's name stays as a tooltip. */
+const STRATEGY_LABEL = {
+  "Optimised plan": "Our smart plan",
+  "Audit-ROI ranking": "Going down our list",
+  "Biggest cheques first": "Biggest amounts first",
+  "Highest risk first": "Riskiest first",
+  "Random selection": "Picking at random",
+};
+const stratName = (s) => STRATEGY_LABEL[s] || s;
 
 /**
  * A counted-up number that settles rather than snapping into place.
@@ -135,18 +146,18 @@ export default function AuditPlan() {
   const gain = best && runnerUp ? best.exposure - runnerUp.exposure : 0;
 
   if (!data && busy) {
-    return (<><Topbar title="Audit Plan" /><div className="content"><Loading /></div></>);
+    return (<><Topbar title="Visit Plan" /><div className="content"><Loading /></div></>);
   }
   if (!data && failed) {
     return (
       <>
-        <Topbar title="Audit Plan" />
+        <Topbar title="Visit Plan" />
         <div className="content">
           <div className="empty">
-            <p><b>Could not reach the API.</b> {failed}</p>
+            <p><b>Could not reach the system.</b> {failed}</p>
             <p className="muted">
-              The plan is computed server-side. If the API is still starting, this clears
-              on its own; otherwise start it with{" "}<code>{API_START_HINT}</code>.
+              The plan is worked out on the server. If it is still starting, this fixes
+              itself; otherwise start it with{" "}<code>{API_START_HINT}</code>.
             </p>
             <button className="btn" onClick={() => setAttempt((n) => n + 1)}>
               Try again
@@ -159,10 +170,10 @@ export default function AuditPlan() {
   if (!data?.available) {
     return (
       <>
-        <Topbar title="Audit Plan" />
+        <Topbar title="Visit Plan" />
         <div className="content">
           <div className="empty">
-            <p>{data?.note || "No scored works available. Run the pipeline first."}</p>
+            <p>{data?.note || "No checked works are available yet. The checks need to be run first."}</p>
             <button className="btn" onClick={() => setAttempt((n) => n + 1)}>
               Try again
             </button>
@@ -179,16 +190,16 @@ export default function AuditPlan() {
   return (
     <>
       <Topbar
-        title="Audit Plan"
-        sub="Where to send a finite number of auditor-days"
-        right={<span className="pill">{num(totals.works)} works · {num(totals.agencies)} visits</span>}
+        title="Visit Plan"
+        sub="Officers only have so many days — this plan shows which works to visit to protect the most money"
+        right={<span className="pill">{num(totals.works)} works · {num(totals.agencies)} office visits</span>}
       />
 
       <div className="content">
         <div className="hitl">
-          <span>◈</span>
+          <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconReport size={16} /></span>
           <span>
-            <strong>A recommendation, not a decision.</strong> {data.contract}
+            <strong>A suggestion, not a decision.</strong> A person can approve, change or reject this plan. It only decides where to look first — it does not blame any work, office or person.
           </span>
         </div>
 
@@ -196,7 +207,7 @@ export default function AuditPlan() {
         <div className="card plan-budget">
           <div className="plan-budget-head">
             <div>
-              <div className="section-label">Auditor-days available</div>
+              <div className="section-label">Officer-days available</div>
               <div className="plan-budget-value">
                 <Figure value={budget} format={(v) => Math.round(v)} duration={420} /> days
               </div>
@@ -217,53 +228,59 @@ export default function AuditPlan() {
             type="range" min={5} max={250} step={5} value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
             className="plan-slider"
-            aria-label="Auditor-days available"
+            aria-label="Officer-days available"
           />
-          <p className="plan-cost-note">{data.comparison.cost_model.note}</p>
+          <p className="plan-cost-note" title={data.comparison.cost_model.note}>
+            Checking the first work at an office takes {data.comparison.cost_model.first_visit_days ?? 1} full
+            day — travel, the visit and writing it up. Each extra work at that same office takes
+            only {data.comparison.cost_model.same_agency_days} of a day, because the officer is already
+            there. That is why a plan does better than just going down a list, which could send one
+            officer to five far-apart places to see five works.
+          </p>
         </div>
 
         {/* ---------------------------------------------------------- headline */}
         <Reveal>
           <div className="grid cols-4 plan-figures">
             <div className="card stat">
-              <div className="label">Exposure covered</div>
+              <div className="label">Money at risk checked</div>
               <div className="value accent">
                 <Figure value={totals.exposure_rupees} format={rupees} />
               </div>
-              <div className="foot">within {totals.days_used} auditor-days</div>
+              <div className="foot">in {totals.days_used} officer-days</div>
             </div>
             <div className="card stat">
               <div className="label">Works reached</div>
               <div className="value"><Figure value={totals.works} /></div>
-              <div className="foot">{num(totals.repeat_visits)} at no extra travel</div>
+              <div className="foot">{num(totals.repeat_visits)} with no extra travel</div>
             </div>
             <div className="card stat">
-              <div className="label">Agency visits</div>
+              <div className="label">Office visits</div>
               <div className="value"><Figure value={totals.agencies} /></div>
               <div className="foot">across {num(totals.states)} states</div>
             </div>
             <div className="card stat">
-              <div className="label">Gained over next best</div>
+              <div className="label">Extra money checked vs next best way</div>
               <div className="value" style={{ color: sev("LOW").ink }}>
                 <Figure value={gain} format={rupees} />
               </div>
-              <div className="foot">vs {runnerUp?.strategy?.toLowerCase() || "—"}</div>
+              <div className="foot">compared with {runnerUp ? stratName(runnerUp.strategy).toLowerCase() : "—"}</div>
             </div>
           </div>
         </Reveal>
 
         {/* ---------------------------------------------------------- comparison */}
         <Reveal delay={80}>
-          <div className="section-title">What each strategy would cover, same budget</div>
+          <div className="section-title">Five ways to choose, same number of days</div>
           <div className="card">
             <div className="plan-bars">
               {strategies.map((s, i) => (
                 <div key={s.strategy} className={"plan-bar-row" + (s.optimised ? " winner" : "")}
                   style={{ "--i": i }}>
                   <div className="plan-bar-label">
-                    <span className="plan-bar-name">{s.strategy}</span>
+                    <span className="plan-bar-name" title={s.strategy}>{stratName(s.strategy)}</span>
                     <span className="plan-bar-meta">
-                      {num(s.works)} works · {num(s.agencies)} visits
+                      {num(s.works)} works · {num(s.agencies)} office visits
                     </span>
                   </div>
                   <div className="plan-bar-track">
@@ -283,7 +300,7 @@ export default function AuditPlan() {
             <div className="plan-notes">
               {strategies.map((s) => (
                 <div key={s.strategy} className="plan-note">
-                  <b>{s.strategy}</b> {STRATEGY_NOTE[s.strategy]}
+                  <b>{stratName(s.strategy)}</b> {STRATEGY_NOTE[s.strategy]}
                 </div>
               ))}
             </div>
@@ -292,22 +309,22 @@ export default function AuditPlan() {
 
         {/* ---------------------------------------------------------- curve */}
         <Reveal delay={140}>
-          <div className="section-title">How coverage grows with budget</div>
+          <div className="section-title">More days, more money checked</div>
           <div className="card">
             <div style={{ height: 260 }}>
               <ResponsiveContainer>
                 <LineChart data={data.curve} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
                   <CartesianGrid stroke="var(--line-soft)" vertical={false} />
                   <XAxis dataKey="budget_days" tick={{ fontSize: 11 }}
-                    label={{ value: "auditor-days", position: "insideBottom", offset: -2, fontSize: 10 }} />
+                    label={{ value: "officer-days", position: "insideBottom", offset: -2, fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 11 }} width={44}
                     label={{ value: "₹ Cr", angle: -90, position: "insideLeft", fontSize: 10 }} />
                   <Tooltip
-                    formatter={(v, n) => [`₹${v} Cr`, n === "optimised_crore" ? "Optimised plan" : "Audit-ROI ranking"]}
-                    labelFormatter={(v) => `${v} auditor-days`}
+                    formatter={(v, n) => [`₹${v} Cr`, n === "optimised_crore" ? "Our smart plan" : "Going down our list"]}
+                    labelFormatter={(v) => `${v} officer-days`}
                     contentStyle={{ fontSize: 12, borderRadius: 4, border: "1px solid var(--line)" }}
                   />
-                  <Legend formatter={(v) => (v === "optimised_crore" ? "Optimised plan" : "Audit-ROI ranking")}
+                  <Legend formatter={(v) => (v === "optimised_crore" ? "Our smart plan" : "Going down our list")}
                     wrapperStyle={{ fontSize: 11 }} />
                   <Line type="monotone" dataKey="optimised_crore" stroke="var(--brick)"
                     strokeWidth={2.5} dot={{ r: 3 }} animationDuration={900} />
@@ -317,24 +334,24 @@ export default function AuditPlan() {
               </ResponsiveContainer>
             </div>
             <p className="plan-cost-note">
-              The gap is travel. At every budget the plan reaches more works than the ranking
-              does, because it finishes an agency before moving on.
+              The difference is travel. With any number of days, the plan reaches more works than
+              going down the list, because it finishes one office before moving to the next.
             </p>
           </div>
         </Reveal>
 
         {/* ---------------------------------------------------------- the plan */}
         <Reveal delay={200}>
-          <div className="section-title">The recommended visit order</div>
+          <div className="section-title">The suggested order of visits</div>
           <div className="card">
             <div className="table-wrap">
               <table className="plan-table">
                 <thead>
                   <tr>
-                    <th>#</th><th>Work</th><th>State</th><th>Implementing agency</th>
-                    <th style={{ textAlign: "right" }}>Exposure</th>
+                    <th>#</th><th>Work</th><th>State</th><th>Agency building it</th>
+                    <th style={{ textAlign: "right" }}>Money at risk</th>
                     <th style={{ textAlign: "right" }}>Days</th>
-                    <th style={{ textAlign: "right" }}>Cumulative</th>
+                    <th style={{ textAlign: "right" }}>Days so far</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -365,9 +382,9 @@ export default function AuditPlan() {
               </button>
             )}
             <p className="plan-cost-note">
-              Rows marked <b>same trip</b> cost {data.comparison.cost_model.same_agency_days} of
-              a day instead of a full one — the auditor is already at that agency because of a
-              choice the plan made earlier. That is where the extra coverage comes from.
+              Rows marked <b>same trip</b> take only {data.comparison.cost_model.same_agency_days} of
+              a day instead of a full day — the officer is already at that office for an earlier
+              work in the plan. That is how the plan fits in more works.
             </p>
           </div>
         </Reveal>
@@ -375,7 +392,7 @@ export default function AuditPlan() {
         {/* ---------------------------------------------------------- by state */}
         {data.by_state?.length > 0 && (
           <Reveal delay={260}>
-            <div className="section-title">Where the days go</div>
+            <div className="section-title">Money checked in each state</div>
             <div className="card">
               <div style={{ height: Math.max(200, data.by_state.length * 26) }}>
                 <ResponsiveContainer>
@@ -386,7 +403,7 @@ export default function AuditPlan() {
                       tickFormatter={(v) => `₹${Math.round(v / 1e7)}Cr`} />
                     <YAxis type="category" dataKey="state" width={110} tick={{ fontSize: 11 }} />
                     <Tooltip
-                      formatter={(v) => [rupees(v), "exposure"]}
+                      formatter={(v) => [rupees(v), "money at risk"]}
                       contentStyle={{ fontSize: 12, borderRadius: 4, border: "1px solid var(--line)" }}
                     />
                     <Bar dataKey="exposure_rupees" radius={[0, 3, 3, 0]} animationDuration={800}>

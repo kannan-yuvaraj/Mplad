@@ -4,13 +4,15 @@
  * LOW ended up painted the same terracotta in two of them.
  *
  * Traffic-light hues, because that is what a reviewer already knows how to read.
- * They are chosen against the parchment ground (#f7f4ed), not picked by eye:
+ * They are chosen against the government ground (#f2f4f7), not picked by eye,
+ * and every ratio below is measured:
  *
  *   level     fill      vs ground   ink        on its chip   glyph
- *   CRITICAL  #8f1d14   8.12:1      #7d1d12    8.27:1        ■
- *   HIGH      #d13a2a   4.40:1      #a8301f    5.66:1        ▲
- *   MEDIUM    #b58200   3.10:1      #8a6508    4.62:1        ◆
- *   LOW       #43976a   3.25:1      #2b6b47    5.31:1        ●
+ *   CRITICAL  #8c1d18   8.27:1      #7a1a15    8.94:1        ■
+ *   HIGH      #c2410c   4.70:1      #9a3412    6.36:1        ▲
+ *   MEDIUM    #a16207   4.47:1      #854d0e    6.05:1        ◆
+ *   LOW       #15803d   4.55:1      #166534    6.24:1        ●
+ *   NONE      #78838f   3.50:1      #475569    6.69:1        ·
  *
  * `fill` clears the 3:1 floor for a chart mark; `ink` clears 4.5:1 for label text
  * on `soft`. Red and amber cannot be pulled apart under deuteranopia — that is
@@ -20,15 +22,15 @@
  */
 
 export const SEVERITY = {
-  CRITICAL: { fill: "#8f1d14", ink: "#7d1d12", soft: "#f7e3df", glyph: "■", rank: 4 },
-  HIGH: { fill: "#d13a2a", ink: "#a8301f", soft: "#fae7e2", glyph: "▲", rank: 3 },
-  MEDIUM: { fill: "#b58200", ink: "#8a6508", soft: "#faeed3", glyph: "◆", rank: 2 },
-  LOW: { fill: "#43976a", ink: "#2b6b47", soft: "#e3ede5", glyph: "●", rank: 1 },
-  NONE: { fill: "#c4b8a2", ink: "#5c554a", soft: "#f1ece1", glyph: "·", rank: 0 },
+  CRITICAL: { fill: "#8c1d18", ink: "#7a1a15", soft: "#fae8e6", glyph: "■", rank: 4 },
+  HIGH: { fill: "#c2410c", ink: "#9a3412", soft: "#fdece2", glyph: "▲", rank: 3 },
+  MEDIUM: { fill: "#a16207", ink: "#854d0e", soft: "#fbf0d8", glyph: "◆", rank: 2 },
+  LOW: { fill: "#15803d", ink: "#166534", soft: "#e6f3ea", glyph: "●", rank: 1 },
+  NONE: { fill: "#78838f", ink: "#475569", soft: "#eef1f5", glyph: "·", rank: 0 },
 };
 
 /** Neutral fallback so an unknown level renders legibly instead of vanishing. */
-const UNKNOWN = { fill: "#8a8175", ink: "#5c554a", soft: "#f1ece1", glyph: "·", rank: -1 };
+const UNKNOWN = { fill: "#64707e", ink: "#475569", soft: "#eef1f5", glyph: "·", rank: -1 };
 
 export const sev = (level) => SEVERITY[String(level || "").toUpperCase()] || UNKNOWN;
 
@@ -40,13 +42,13 @@ export const sevFill = (level) => sev(level).fill;
  * rules anywhere in this system, so OFFICIAL_RULE is styled as the empty slot it is.
  */
 export const AUTHORITY = {
-  OFFICIAL_RULE: { ink: "#7f3520", soft: "#f6e6e0", label: "Official rule" },
-  OBSERVED_BASELINE: { ink: "#8a6508", soft: "#faeed3", label: "Observed baseline" },
-  STATISTICAL_OUTLIER: { ink: "#5c554a", soft: "#f1ece1", label: "Statistical outlier" },
+  OFFICIAL_RULE: { ink: "#0e2f52", soft: "#e7eef6", label: "Official rule" },
+  OBSERVED_BASELINE: { ink: "#854d0e", soft: "#fbf0d8", label: "Record problem" },
+  STATISTICAL_OUTLIER: { ink: "#475569", soft: "#eef1f5", label: "Much more than usual" },
 };
 
 export const authority = (key) =>
-  AUTHORITY[key] || { ink: "#5c554a", soft: "#f1ece1", label: prettify(key) };
+  AUTHORITY[key] || { ink: "#475569", soft: "#eef1f5", label: prettify(key) };
 
 /**
  * Temporal classifications map onto the same scale by what they mean for a

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
+import { OUTCOME, plainGuidance } from "../plain.js";
 
 /**
  * Where this work has got to as a piece of casework.
@@ -30,9 +31,9 @@ export default function CaseworkStrip({ workRef }) {
       <div className="casework casework-absent">
         <span className="casework-dot" aria-hidden="true">○</span>
         <span>
-          <strong>Not yet a case.</strong> {data.note}
+          <strong>Not a Salesforce case yet.</strong> <span title={data.note}>Only the 500 works most worth checking are put into Salesforce for people to track; the rest stay on the list until an officer picks one up.</span>
           {data.verifications > 0 && (
-            <> {data.verifications} field verification(s) exist for it regardless.</>
+            <> Even so, {data.verifications} site visit report{data.verifications === 1 ? "" : "s"} already exist{data.verifications === 1 ? "s" : ""} for it.</>
           )}
         </span>
       </div>
@@ -45,7 +46,7 @@ export default function CaseworkStrip({ workRef }) {
     <div className="casework">
       <div className="casework-head">
         <div>
-          <div className="section-label">Casework in Salesforce</div>
+          <div className="section-label">Case tracking in Salesforce</div>
           <div className="casework-stage">{data.stage}</div>
         </div>
         <div className="casework-meta">
@@ -55,7 +56,7 @@ export default function CaseworkStrip({ workRef }) {
       </div>
 
       {/* The Path, mirrored from Salesforce so an officer sees the same shape in both. */}
-      <ol className="casework-path" aria-label="Investigation stage">
+      <ol className="casework-path" aria-label="Case step">
         {stages.map((stage, i) => (
           <li
             key={stage}
@@ -74,27 +75,27 @@ export default function CaseworkStrip({ workRef }) {
         ))}
       </ol>
 
-      <p className="casework-guidance">{data.guidance}</p>
+      <p className="casework-guidance" title={data.guidance}>{plainGuidance(data.stage, data.guidance)}</p>
 
       {data.findings?.length > 0 && (
         <div className="casework-findings">
           <div className="section-label">What officers found</div>
           {data.findings.map((f, i) => (
             <div key={i} className="casework-finding">
-              <span className="casework-outcome">{f.outcome.replace(/_/g, " ")}</span>
+              <span className="casework-outcome" title={f.outcome}>{OUTCOME[f.outcome]?.[0] || f.outcome.replace(/_/g, " ")}</span>
               {f.notes && <span className="casework-notes">{f.notes}</span>}
               <span className="casework-by">{f.actor} · {f.when}</span>
             </div>
           ))}
           <p className="casework-label-note">
-            Each of these is a label. There is no dataset saying which works were problems,
-            so records like these are the only ground truth this system can obtain — and
-            "nothing wrong" counts for exactly as much as a confirmed one.
+            Each of these teaches the system something. No record says which works really had
+            problems, so reports like these are the only real proof it can ever get — and
+            "nothing wrong" counts just as much as a confirmed problem.
           </p>
         </div>
       )}
 
-      <Link to="/salesforce" className="casework-open">Open in the casework hub →</Link>
+      <Link to="/salesforce" className="casework-open">Open Case Tracking →</Link>
     </div>
   );
 }

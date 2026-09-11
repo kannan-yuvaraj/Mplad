@@ -58,6 +58,8 @@ export const api = {
   },
   states: () => get("/api/states"),
   models: () => get("/api/models"),
+  /** Liveness and engine version — polled by the status indicator in the masthead. */
+  health: () => get("/api/health"),
   roles: () => get("/api/roles"),
   setToken: _setToken,
   login: (username, password) =>
@@ -75,6 +77,22 @@ export const api = {
     return fetch("/api/ocr", { method: "POST", headers: authHeaders(), body: form })
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
   },
+  /** A sanction order, work order or certificate (PDF or photo), read by Docling. */
+  ocrDocument: (file, workRef) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (workRef) form.append("work_ref", workRef);
+    return fetch("/api/ocr/document", { method: "POST", headers: authHeaders(), body: form })
+      .then(async (r) => {
+        if (!r.ok) {
+          const detail = await r.json().then((d) => d.detail).catch(() => null);
+          throw new Error(detail || String(r.status));
+        }
+        return r.json();
+      });
+  },
+  /** Which readers this machine has and whether the photograph reader is ready. */
+  ocrStatus: () => get("/api/ocr/status"),
   verifications: (ref) => get(`/api/verify/${encodeURIComponent(ref)}`),
   verify: (ref, body) =>
     fetch(`/api/verify/${encodeURIComponent(ref)}`, {

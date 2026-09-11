@@ -7,6 +7,11 @@ import { authority, prettify, riskFill, sevFill } from "../severity.js";
 import Insight from "../components/Insight.jsx";
 import FieldVerify from "../components/FieldVerify.jsx";
 import CaseworkStrip from "../components/CaseworkStrip.jsx";
+import { IconCasework, IconDocument } from "../components/icons.jsx";
+import {
+  DISCLAIMER, PEER_LEVEL, RISK_BASIS, checkMeaning, checkName, clueName, familyName,
+  plainAction, plainEvidence, plainGuidance, plainNextStep, plainReason,
+} from "../plain.js";
 
 const FAM_ICON = {
   amount: "₹", duration: "⏱", lifecycle: "⚑",
@@ -54,9 +59,9 @@ export default function CaseFile() {
         officer_finding: finding,
       });
       setActiveStage(stage);
-      setSfMsg(`✅ Updated Salesforce stage to ${stage}`);
+      setSfMsg(`✅ Moved to step "${stage}" in Salesforce`);
     } catch (e) {
-      setSfMsg(`❌ Failed to update: ${e}`);
+      setSfMsg(`❌ Could not update: ${e}`);
     } finally {
       setSfUpdating(false);
     }
@@ -72,20 +77,20 @@ export default function CaseFile() {
       <Topbar title="Case File" sub={c.work_ref}
         right={<Band value={c.confidence_band} />} />
       <div className="content">
-        <Link to="/worklist" className="back">← Back to worklist</Link>
+        <Link to="/worklist" className="back">← Back to the list</Link>
         <div className="case-actions">
           <a className="btn-report" href={api.caseReportUrl(ref)} target="_blank"
              rel="noreferrer" title="Open the printable case report">
-            <span className="btn-report-icon">▤</span>
-            Download case report (PDF)
+            <span className="btn-report-icon" aria-hidden="true"><IconDocument size={14} /></span>
+            Printable case report (PDF)
           </a>
         </div>
 
         <div className="card" style={{ marginBottom: 18, fontSize: 13.5, color: "var(--text-2)" }}>
-          <strong style={{ color: "var(--text)" }}>Plain summary:</strong> this work was put on the
-          audit list because {c.n_signal_families} independent kinds of evidence agreed something is
-          worth checking. About <strong>{rupees(c.exposure_rupees)}</strong> may be tied up if it does
-          not finish. Read the evidence below, then see the recommended next step for a human.
+          <strong style={{ color: "var(--text)" }}>In short:</strong> this work was put on the
+          list to check because {c.n_signal_families} different kinds of clue agreed something is
+          worth a look. About <strong>{rupees(c.exposure_rupees)}</strong> could be stuck if it never
+          gets finished. Read the clues below, then see what a person should do next.
         </div>
 
         <CaseworkStrip workRef={ref} />
@@ -104,7 +109,7 @@ export default function CaseFile() {
           </div>
           <div className="roi-badge">
             <div className="v">{rupees(c.audit_roi)}</div>
-            <div className="l">Audit-ROI rank score</div>
+            <div className="l">Worth-checking score</div>
           </div>
         </div>
 
@@ -114,20 +119,20 @@ export default function CaseFile() {
             <div className="value" style={{ fontSize: 24 }}>{rupees(id.recommended_amount)}</div>
           </div>
           <div className="card stat">
-            <div className="label">₹ Exposure at risk</div>
+            <div className="label">₹ Money at risk</div>
             <div className="value accent" style={{ fontSize: 24 }}>{rupees(c.exposure_rupees)}</div>
-            <div className="foot">amount × completion risk</div>
+            <div className="foot">amount × chance it may not get finished</div>
           </div>
           <div className="card stat">
-            <div className="label">Completion risk</div>
+            <div className="label">Chance it may not get finished</div>
             <div className="value" style={{ fontSize: 24 }}>{Math.round(c.risk.completion_risk * 100)}%</div>
             <Meter value={c.risk.completion_risk} color={riskFill(c.risk.completion_risk)} />
-            <div className="foot">basis: {c.risk.basis}</div>
+            <div className="foot" title={`basis: ${c.risk.basis}`}>{RISK_BASIS[c.risk.basis] || `worked out from: ${c.risk.basis}`}</div>
           </div>
           <div className="card stat">
-            <div className="label">Corroboration</div>
-            <div className="value" style={{ fontSize: 24 }}>{c.n_signal_families} families</div>
-            <div className="foot">independent signal families fired</div>
+            <div className="label">Clues that agree</div>
+            <div className="value" style={{ fontSize: 24 }}>{c.n_signal_families} kinds</div>
+            <div className="foot">different kinds of clue found</div>
           </div>
         </div></Reveal>
 
@@ -135,13 +140,13 @@ export default function CaseFile() {
           <div className="card" style={{ marginTop: 18, background: "#fdfbf7", borderColor: "rgba(168, 69, 42, 0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚡</span>
-                <strong style={{ fontSize: 14, color: "var(--accent)" }}>Salesforce CRM Casework & Path</strong>
+                <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex" }}><IconCasework size={16} /></span>
+                <strong style={{ fontSize: 14, color: "var(--accent)" }}>Case tracking in Salesforce — steps</strong>
                 <span className="fam-tag">{sfCase.case?.escalation_tier}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <Link to="/salesforce" className="link" style={{ fontSize: 12 }}>
-                  Open in Salesforce Hub →
+                  Open Case Tracking →
                 </Link>
               </div>
             </div>
@@ -180,7 +185,7 @@ export default function CaseFile() {
 
             {/* Active Stage Guidance */}
             <div style={{ fontSize: 12.5, padding: "8px 12px", background: "#ffffff", borderRadius: 4, borderLeft: "3px solid var(--accent)", color: "var(--text-2)" }}>
-              <strong>Officer Guidance:</strong> <em>"{sfCase.stages?.find((s) => s.stage === activeStage)?.guidance}"</em>
+              <strong>What the officer should do at this step:</strong> <em title={sfCase.stages?.find((s) => s.stage === activeStage)?.guidance}>"{plainGuidance(activeStage, sfCase.stages?.find((s) => s.stage === activeStage)?.guidance)}"</em>
             </div>
 
             {sfMsg && (
@@ -193,13 +198,13 @@ export default function CaseFile() {
 
         <Reveal delay={80}><div className="grid cols-2" style={{ marginTop: 16 }}>
           <div className="card">
-            <h3>Evidence — why this was surfaced</h3>
+            <h3>Clues — why this work was flagged</h3>
             {c.evidence.map((e, i) => (
               <div className="evidence-item" key={i} style={{ "--i": i }}>
                 <div className="evidence-icon">{FAM_ICON[e.family] || "•"}</div>
                 <div className="evidence-body">
-                  <div className="s">{e.signal}<span className="fam-tag">{e.family}</span></div>
-                  <div className="d">{e.detail}</div>
+                  <div className="s" title={e.signal}>{clueName(e.signal)}<span className="fam-tag">{familyName(e.family)}</span></div>
+                  <div className="d" title={e.detail}>{plainEvidence(e.detail)}</div>
                 </div>
               </div>
             ))}
@@ -207,15 +212,15 @@ export default function CaseFile() {
 
           <div>
             <div className="card" style={{ marginBottom: 16 }}>
-              <h3>Peer context</h3>
+              <h3>Compared with similar works</h3>
               <dl className="kv">
-                <dt>Archetype</dt><dd>{c.archetype.label}</dd>
-                <dt>Peer level</dt><dd>{c.peer_context.level}</dd>
-                <dt>Peer group size</dt><dd>{num(c.peer_context.group_size)} works</dd>
-                <dt>Amount percentile</dt>
+                <dt>Kind of work</dt><dd>{c.archetype.label}</dd>
+                <dt>Compared with</dt><dd title={c.peer_context.level}>{PEER_LEVEL[c.peer_context.level] || c.peer_context.level}</dd>
+                <dt>Number of similar works</dt><dd>{num(c.peer_context.group_size)} works</dd>
+                <dt>Costs more than</dt>
                 <dd>{c.peer_context.amount_percentile != null
-                  ? `${Math.round(c.peer_context.amount_percentile * 100)}th` : "—"}</dd>
-                <dt>Priority score</dt><dd>{c.priority.toFixed(3)}</dd>
+                  ? `${Math.round(c.peer_context.amount_percentile * 100)} out of every 100 of them` : "—"}</dd>
+                <dt>Urgency score (0 to 1)</dt><dd>{c.priority.toFixed(3)}</dd>
               </dl>
             </div>
 
@@ -224,23 +229,23 @@ export default function CaseFile() {
                 <h3>Early warning</h3>
                 <Band value={c.early_warning.level} />
                 <Meter value={c.early_warning.score} color={sevFill(c.early_warning.level)} />
-                <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-                  {c.early_warning.reason}
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }} title={c.early_warning.reason}>
+                  {plainReason(c.early_warning.reason)}
                 </p>
               </div>
             )}
 
             {c.compliance_findings?.length > 0 && (
               <div className="card" style={{ marginBottom: 16 }}>
-                <h3>Compliance findings</h3>
+                <h3>Problems found in the records</h3>
                 {c.compliance_findings.map((f, i) => (
                   <div key={i} style={{ marginBottom: 10 }}>
                     <div style={{ fontWeight: 620, fontSize: 13 }}>
-                      {f.check}
+                      <span title={f.check}>{checkName(f.check)}</span>
                       <span className="fam-tag">{authority(f.authority).label}</span>
                       <Band value={f.severity} />
                     </div>
-                    <div className="muted" style={{ fontSize: 12 }}>{f.meaning}</div>
+                    <div className="muted" style={{ fontSize: 12 }} title={f.meaning}>{checkMeaning(f.check, f.meaning)}</div>
                   </div>
                 ))}
               </div>
@@ -248,13 +253,13 @@ export default function CaseFile() {
 
             {c.duplicate && (
               <div className="card" style={{ marginBottom: 16 }}>
-                <h3>Near-duplicate candidate</h3>
+                <h3>Possible duplicate</h3>
                 <dl className="kv">
-                  <dt>Matched work</dt>
+                  <dt>Look-alike work</dt>
                   <dd><Link to={`/case/${c.duplicate.partner_work_ref}`} className="link">
                     {c.duplicate.partner_work_ref}</Link></dd>
-                  <dt>Similarity</dt><dd>{(c.duplicate.similarity * 100).toFixed(1)}%</dd>
-                  <dt>Classification</dt><dd>{prettify(c.duplicate.classification)}</dd>
+                  <dt>How alike</dt><dd>{(c.duplicate.similarity * 100).toFixed(1)}%</dd>
+                  <dt>Type</dt><dd>{prettify(c.duplicate.classification)}</dd>
                 </dl>
               </div>
             )}
@@ -262,14 +267,14 @@ export default function CaseFile() {
             <FieldVerify workRef={ref} />
 
             <div className="action-panel">
-              <div className="label">Recommended next step</div>
-              <div className="text">{c.recommended_next_step}</div>
+              <div className="label">What a person should do next</div>
+              <div className="text" title={c.recommended_next_step}>{plainNextStep(c.recommended_next_step)}</div>
               {c.suggested_actions?.length > 0 && (
                 <ul style={{ margin: "12px 0 0 18px", fontSize: 13, color: "var(--text-2)" }}>
-                  {c.suggested_actions.map((a, i) => <li key={i}>{a}</li>)}
+                  {c.suggested_actions.map((a, i) => <li key={i} title={a}>{plainAction(a)}</li>)}
                 </ul>
               )}
-              <div className="note">{c.disclaimer}</div>
+              <div className="note" title={c.disclaimer}>{c.disclaimer ? DISCLAIMER : null}</div>
             </div>
           </div>
         </div>
@@ -293,22 +298,22 @@ function ClearRecord({ work }) {
   return (
     <>
       <Topbar title="Case File" sub={work.work_ref}
-        right={<span className="pill pill-clear">Not surfaced</span>} />
+        right={<span className="pill pill-clear">Not flagged</span>} />
       <div className="content">
-        <Link to="/worklist" className="back">← Back to worklist</Link>
+        <Link to="/worklist" className="back">← Back to the list</Link>
         <div className="case-actions">
           <a className="btn-report" href={api.caseReportUrl(work.work_ref)} target="_blank"
              rel="noreferrer" title="Open the printable case report">
-            <span className="btn-report-icon">▤</span>
-            Download case report (PDF)
+            <span className="btn-report-icon" aria-hidden="true"><IconDocument size={14} /></span>
+            Printable case report (PDF)
           </a>
         </div>
 
         <div className="card clear-note">
-          <strong>Nothing was flagged on this work.</strong> It sits inside the norms of
-          its peer group on every measure we compute — amount, duration, lifecycle
-          conformance, behaviour and duplication. There is no case to answer here and no
-          reviewer is needed.
+          <strong>Nothing was flagged on this work.</strong> It is normal compared with
+          similar works on everything we check — cost, time taken, its records, the agency's
+          behaviour and look-alike works. There is nothing to answer here and nobody needs to
+          review it.
         </div>
 
         <div className="case-head">
@@ -319,7 +324,7 @@ function ClearRecord({ work }) {
             </div>
             <div className="case-meta">
               MP: {id.mp_name} · Recommended {id.recommendation_date || "—"} ·{" "}
-              {id.is_completed ? `Completed ${id.completion_date || ""}` : "Open"}
+              {id.is_completed ? `Finished ${id.completion_date || ""}` : "Not finished yet"}
             </div>
           </div>
         </div>
@@ -332,7 +337,7 @@ function ClearRecord({ work }) {
           <div className="card stat">
             <div className="label">Work type</div>
             <div className="value" style={{ fontSize: 17 }}>{work.archetype.label}</div>
-            <div className="foot">learned from description, not declared</div>
+            <div className="foot">worked out by the computer from the description</div>
           </div>
         </div></Reveal>
 
@@ -341,8 +346,8 @@ function ClearRecord({ work }) {
         <FieldVerify workRef={work.work_ref} />
 
         <div className="card next-step">
-          <div className="section-label">Recommended next step</div>
-          <p>{work.recommended_next_step}</p>
+          <div className="section-label">What a person should do next</div>
+          <p title={work.recommended_next_step}>{plainNextStep(work.recommended_next_step)}</p>
         </div>
       </div>
     </>

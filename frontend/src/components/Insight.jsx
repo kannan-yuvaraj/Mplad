@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useI18n } from "../I18nContext.jsx";
+import { IconDocument } from "./icons.jsx";
+import { plainBrief } from "../plain.js";
 
 /**
  * A written briefing over numbers the pipeline already computed.
@@ -30,11 +32,11 @@ export default function Insight({ kind, workRef, params = {} }) {
   return (
     <div className="insight">
       <div className="insight-head">
-        <span className="insight-mark">◈</span>
-        <span className="insight-title">{t("case.aiBrief", "AI briefing")}</span>
+        <span className="insight-mark" aria-hidden="true"><IconDocument size={13} /></span>
+        <span className="insight-title">{t("case.aiBrief", "Summary in plain words")}</span>
         {data && (
           <span className="insight-src">
-            {generated ? `generated · ${data.model || "claude"}` : "deterministic template"}
+            {generated ? `written by AI · ${data.model || "claude"}` : "fixed template, filled with real numbers"}
           </span>
         )}
       </div>
@@ -45,7 +47,7 @@ export default function Insight({ kind, workRef, params = {} }) {
           <div className="skeleton" style={{ height: 12, width: "62%" }} />
         </div>
       ) : (
-        <p className="insight-body">{data.text}</p>
+        <p className="insight-body" title={!generated && lang === "en" ? data.text : undefined}>{!generated && lang === "en" ? plainBrief(data.text) : data.text}</p>
       )}
     </div>
   );

@@ -3,6 +3,30 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, num, rupees } from "../api.js";
 import { Band, Loading, Topbar } from "../components/Bits.jsx";
 import { Reveal } from "../components/Reveal.jsx";
+import { IconAgency } from "../components/icons.jsx";
+import { clueName } from "../plain.js";
+
+/**
+ * The engine's comparison sentence, said plainly. The engine decides which of its four
+ * readings applies (too few works / well above / well below / ordinary); this keeps that
+ * decision and only changes the words. The engine's sentence stays as the tooltip.
+ */
+function plainReading(s, works) {
+  const r = s.reading || "";
+  const pct = (v) => `${(v * 100).toFixed(1)}%`;
+  const per100 = (v) => Math.round(v * 100);
+  if (!s.comparable || r.includes("too few")) {
+    return `${num(works)} works are too few to compare fairly. The works listed below are still worth reading, but the share is not.`;
+  }
+  const base = `The computer flagged ${pct(s.rate)} of this agency's works (about ${per100(s.rate)} in every 100). Across India it flags ${pct(s.national_rate)}.`;
+  if (r.includes("times the national rate")) {
+    return `${base} That is about ${s.rate_multiple} times more often than usual — a reason to look more closely, not proof of anything.`;
+  }
+  if (r.includes("below the ordinary rate")) {
+    return `${base} That is less often than usual.`;
+  }
+  return `${base} That is normal. This agency is listed because it is big and because of the works below, not because it stands out.`;
+}
 
 /**
  * The page an auditor reads on the way to a visit.
@@ -25,7 +49,7 @@ function Rate({ label, value, national, format = (v) => `${(v * 100).toFixed(1)}
       <div className="label">{label}</div>
       <div className="value">{value == null ? "—" : format(value)}</div>
       <div className="foot">
-        {national == null ? "—" : `${format(national)} across the portfolio`}
+        {national == null ? "—" : `${format(national)} across India`}
       </div>
     </div>
   );
@@ -50,7 +74,7 @@ export default function AgencyDossier() {
     setError("");
     api.agency(name)
       .then((d) => { if (live) setData(d); })
-      .catch(() => { if (live) setError("No such implementing agency in this portfolio."); });
+      .catch(() => { if (live) setError("There is no agency with this name in the records."); });
     return () => { live = false; };
   }, [name]);
 
@@ -68,25 +92,25 @@ export default function AgencyDossier() {
   if (!name) {
     return (
       <>
-        <Topbar title="Agency Dossier" sub="Who implements the work, and what we know about them" />
+        <Topbar title="Agency Profile" sub="The offices that build the works, and what we know about each one" />
         <div className="content">
           <div className="hitl">
-            <span>◈</span>
+            <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconAgency size={16} /></span>
             <span>
-              <strong>A briefing on a body, not a case against it.</strong> Agencies are
-              listed by the exposure they carry, which tracks size as much as anything
-              else. Open one to see the rate, which is the only version of this comparison
-              worth acting on.
+              <strong>Information about an office, not an accusation.</strong> Agencies are
+              listed by how much money at risk they hold — and big agencies naturally hold
+              more. Open one to see what share of its works were flagged; that fair
+              comparison is the one worth acting on.
             </span>
           </div>
 
           <div className="card">
             <input
               className="input"
-              placeholder="Filter by agency or state…"
+              placeholder="Search by agency or state…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              aria-label="Filter agencies"
+              aria-label="Search agencies"
             />
           </div>
 
@@ -96,9 +120,9 @@ export default function AgencyDossier() {
                 <table className="plan-table">
                   <thead>
                     <tr>
-                      <th>Implementing agency</th><th>State</th>
+                      <th>Agency</th><th>State</th>
                       <th style={{ textAlign: "right" }}>Works</th>
-                      <th style={{ textAlign: "right" }}>Exposure carried</th>
+                      <th style={{ textAlign: "right" }}>Money at risk</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -129,7 +153,7 @@ export default function AgencyDossier() {
   if (error) {
     return (
       <>
-        <Topbar title="Agency Dossier" />
+        <Topbar title="Agency Profile" />
         <div className="content">
           <div className="empty">
             {error} <Link to="/agency" className="link">Back to the list</Link>
@@ -139,12 +163,12 @@ export default function AgencyDossier() {
     );
   }
   if (!data) {
-    return (<><Topbar title="Agency Dossier" /><div className="content"><Loading /></div></>);
+    return (<><Topbar title="Agency Profile" /><div className="content"><Loading /></div></>);
   }
   if (!data.available) {
     return (
       <>
-        <Topbar title="Agency Dossier" />
+        <Topbar title="Agency Profile" />
         <div className="content"><div className="empty">{data.note}</div></div>
       </>
     );
@@ -163,27 +187,27 @@ export default function AgencyDossier() {
 
       <div className="content">
         <div className="hitl">
-          <span>◈</span>
-          <span><strong>A briefing, not a finding.</strong> {data.contract}</span>
+          <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconAgency size={16} /></span>
+          <span title={data.contract}><strong>Information, not an accusation.</strong> Nothing here says this agency or anyone in it did wrong. The works below are only worth checking, and a person decides what to do about them.</span>
         </div>
 
         {/* ------------------------------------------------------ the comparison */}
         <Reveal>
           <div className="section-title">How this agency compares</div>
-          <div className="card dossier-reading">{s.reading}</div>
+          <div className="card dossier-reading" title={s.reading}>{plainReading(s, p.works)}</div>
           <div className="grid cols-4 plan-figures" style={{ marginTop: 12 }}>
-            <Rate label="Works surfaced as leads" value={s.rate} national={s.national_rate} />
-            <Rate label="Still open" value={p.open_rate} national={p.national_open_rate} />
+            <Rate label="Works flagged" value={s.rate} national={s.national_rate} />
+            <Rate label="Not finished yet" value={p.open_rate} national={p.national_open_rate} />
             <div className="card stat">
-              <div className="label">Exposure in surfaced works</div>
+              <div className="label">Money at risk in flagged works</div>
               <div className="value accent">{rupees(s.exposure_rupees)}</div>
               <div className="foot">{num(s.high)} HIGH · {num(s.medium)} MEDIUM</div>
             </div>
             <div className="card stat">
-              <div className="label">Median work</div>
+              <div className="label">Typical work costs</div>
               <div className="value">{rupees(p.median_work_rupees)}</div>
               <div className="foot">
-                {rupees(p.national_median_work_rupees)} across the portfolio
+                {rupees(p.national_median_work_rupees)} across India
               </div>
             </div>
           </div>
@@ -193,14 +217,16 @@ export default function AgencyDossier() {
         <Reveal delay={70}>
           <div className="section-title">What officers found here</div>
           <div className="card">
-            <p className="plan-cost-note" style={{ marginTop: 0 }}>
-              {data.field_history_note}
+            <p className="plan-cost-note" style={{ marginTop: 0 }} title={data.field_history_note}>
+              {data.field_history.length > 0
+                ? "What officers wrote down when they visited, including visits where nothing was wrong. These count for more than anything the computer says — a real visit is the only proof there is."
+                : "No officer has written up a visit to this agency yet. The first one to do so gives the first real proof about it."}
             </p>
             {data.field_history.length > 0 && (
               <div className="table-wrap">
                 <table className="plan-table">
                   <thead>
-                    <tr><th>Work</th><th>Outcome</th><th>Officer</th><th>When</th><th>Note</th></tr>
+                    <tr><th>Work</th><th>What they found</th><th>Officer</th><th>When</th><th>Note</th></tr>
                   </thead>
                   <tbody>
                     {data.field_history.map((row, i) => (
@@ -213,7 +239,7 @@ export default function AgencyDossier() {
                         <td>{row.outcome.replaceAll("_", " ").toLowerCase()}</td>
                         <td>
                           {row.actor}
-                          {row.demo && <span className="chip" style={{ marginLeft: 6 }}>seeded</span>}
+                          {row.demo && <span className="chip" style={{ marginLeft: 6 }} title="A sample record made for the demo, not a real visit">demo sample</span>}
                         </td>
                         <td>{row.when}</td>
                         <td className="plan-agency">{row.notes}</td>
@@ -229,20 +255,20 @@ export default function AgencyDossier() {
         {/* ------------------------------------------------------------ the leads */}
         <Reveal delay={130}>
           <div className="section-title">
-            What is worth looking at while you are there
+            Works worth checking while you are there
           </div>
           <div className="card">
             {data.top_leads.length === 0 ? (
               <div className="empty" style={{ padding: 16 }}>
-                Nothing at this agency was surfaced as a lead.
+                Nothing at this agency was flagged.
               </div>
             ) : (
               <div className="table-wrap">
                 <table className="plan-table">
                   <thead>
                     <tr>
-                      <th>Work</th><th>Description</th><th>Band</th>
-                      <th style={{ textAlign: "right" }}>Exposure</th>
+                      <th>Work</th><th>What it is</th><th>Clue strength</th>
+                      <th style={{ textAlign: "right" }}>Money at risk</th>
                       <th>Why</th>
                     </tr>
                   </thead>
@@ -261,7 +287,7 @@ export default function AgencyDossier() {
                         <td style={{ textAlign: "right" }}>
                           {rupees(row.exposure_rupees)}
                         </td>
-                        <td className="plan-agency">{row.signals.join(" · ")}</td>
+                        <td className="plan-agency">{row.signals.map(clueName).join(" · ")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -274,25 +300,24 @@ export default function AgencyDossier() {
         {/* ------------------------------------------------------ same-trip pairs */}
         {data.internal_duplicates.length > 0 && (
           <Reveal delay={190}>
-            <div className="section-title">Near-duplicate pairs one visit could settle</div>
+            <div className="section-title">Look-alike works one visit could sort out</div>
             <div className="card">
               <p className="plan-cost-note" style={{ marginTop: 0 }}>
-                Both works in each pair sit at this agency, so a single trip can establish
-                whether they are genuinely separate. Repeated descriptions are common and
-                legitimate in this scheme — this is a question to put to someone, not a
-                finding.
+                Both works in each pair belong to this agency, so one trip can show whether they
+                really are two separate works. The same description is often used for different
+                works, and that is normal — this is a question to ask, not proof of anything.
               </p>
               <div className="table-wrap">
                 <table className="plan-table">
                   <thead>
-                    <tr><th>Work</th><th>Work</th><th>Similarity</th><th>Description</th></tr>
+                    <tr><th>Work</th><th>Work</th><th>How alike</th><th>What it is</th></tr>
                   </thead>
                   <tbody>
                     {data.internal_duplicates.map((pair) => (
                       <tr key={`${pair.a}-${pair.b}`}>
                         <td><Link to={`/case/${pair.a}`} className="plan-ref">{pair.a}</Link></td>
                         <td><Link to={`/case/${pair.b}`} className="plan-ref">{pair.b}</Link></td>
-                        <td>{(pair.similarity * 100).toFixed(1)}% · {pair.classification}</td>
+                        <td>{(pair.similarity * 100).toFixed(1)}% · {pair.classification === "EXACT" ? "same words" : pair.classification.toLowerCase().replaceAll("_", " ")}</td>
                         <td className="plan-agency">{pair.description}</td>
                       </tr>
                     ))}
@@ -315,11 +340,11 @@ export default function AgencyDossier() {
               ))}
             </div>
             <p className="plan-cost-note">
-              {num(p.completed)} completed, {num(p.open)} open
+              {num(p.completed)} finished, {num(p.open)} not finished yet
               {p.median_completed_days
-                ? ` · completed works took a median of ${num(Math.round(p.median_completed_days))} days`
+                ? ` · finished works usually took about ${num(Math.round(p.median_completed_days))} days`
                 : ""}
-              . Constituencies: {data.constituencies.join(", ")}.
+              . Areas (constituencies): {data.constituencies.join(", ")}.
             </p>
           </div>
         </Reveal>
