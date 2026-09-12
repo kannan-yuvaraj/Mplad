@@ -205,13 +205,20 @@ def assign(plan: pd.DataFrame, auditors: int = 4) -> dict:
 
 
 def build(works: pd.DataFrame, budget_days: float = targeting.DEFAULT_BUDGET,
-          auditors: int = 4) -> dict:
-    """Plan under the budget, then deal the resulting trips out to a team."""
+          auditors: int = 4, plan: pd.DataFrame | None = None) -> dict:
+    """Plan under the budget, then deal the resulting trips out to a team.
+
+    `plan` is accepted because the plan does not depend on the team size at all — dealing
+    23 trips to 4 auditors or to 12 uses the same 23 trips. Re-planning per team size cost
+    a fresh run of the optimiser on every move of the auditors dial, which is the whole
+    wait on this screen; the caller passes the plan it already holds.
+    """
     leads = works[works["band"].isin(["HIGH", "MEDIUM"])].copy()
     if leads.empty:
         return {"available": False, "note": "no leads to plan against"}
 
-    plan = targeting.optimise(leads, budget_days=budget_days)
+    if plan is None:
+        plan = targeting.optimise(leads, budget_days=budget_days)
     result = assign(plan, auditors=auditors)
     result["budget_days"] = budget_days
     result["per_auditor_days"] = round(budget_days / max(1, auditors), 2)

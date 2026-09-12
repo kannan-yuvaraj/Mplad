@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -77,6 +78,11 @@ async def lifespan(_: FastAPI):
     # the API is answering immediately, and so the first officer to photograph a board is
     # not the one who waits for it. If it cannot start, photographs fall back to RapidOCR.
     ocr.warm_in_background()
+    # The budget slider steps in fives, so a drag lands on values nobody has asked for yet.
+    # Each costs about a quarter of a second to plan and nothing at all afterwards; warming
+    # the whole range takes ~15 s of one background thread and makes every later move on
+    # the Visit Plan and Who Goes Where screens instant.
+    threading.Thread(target=_warm_budget_slider, name="plan-warm", daemon=True).start()
     yield
     ocr.shutdown()
 
@@ -610,6 +616,32 @@ def _scope_key(principal: Principal) -> str:
 #: jurisdiction has to be part of the key and only this layer knows it. Small enough to
 #: hold every budget preset for every demo account at once; the artifacts are read-only
 #: between pipeline runs, so nothing can go stale under it while the service is up.
+def _warm_budget_slider() -> None:
+    """Fill the plan cache for every slider position, presets first, national scope only.
+
+    A scoped officer's first move still pays for one plan; warming every jurisdiction would
+    be 36 times the work for a screen most of them never open.
+    """
+    budgets = list(targeting.BUDGET_PRESETS) + list(range(5, 251, 5))
+    seen: set[float] = set()
+    for budget in budgets:
+        value = float(budget)
+        if value in seen:
+            continue
+        seen.add(value)
+        try:
+            _plan_cached("*", value)
+        except Exception as exc:  # pragma: no cover - a warm-up must never take the API down
+            LOGGER.info("plan warm-up stopped at %s days (%s)", budget, type(exc).__name__)
+            return
+    for auditors in (1, 2, 4, 6, 8, 12):
+        try:
+            _rota_cached("*", float(targeting.DEFAULT_BUDGET), auditors)
+        except Exception:
+            return
+    LOGGER.info("plan cache warm: %s budgets", len(seen))
+
+
 @lru_cache(maxsize=128)
 def _plan_cached(scope_key: str, budget_days: float) -> dict:
     return targeting.build(_frame_for_scope(scope_key), budget_days=budget_days,
@@ -626,10 +658,23 @@ def _curve_cached(scope_key: str) -> list[dict]:
     return targeting.coverage_curve(leads) if not leads.empty else []
 
 
+#: The plan itself, as a frame, cached per (jurisdiction, budget). The rota and the audit
+#: plan screen both need it, and the team size does not change it — so the auditors dial
+#: costs a deal of the same trips rather than a fresh run of the optimiser.
+@lru_cache(maxsize=128)
+def _plan_frame_cached(scope_key: str, budget_days: float) -> pd.DataFrame:
+    frame = _frame_for_scope(scope_key)
+    leads = frame[frame["band"].isin(["HIGH", "MEDIUM"])]
+    return targeting.optimise(leads, budget_days=budget_days)
+
+
 @lru_cache(maxsize=128)
 def _rota_cached(scope_key: str, budget_days: float, auditors: int) -> dict:
-    return assignment.build(_frame_for_scope(scope_key),
-                            budget_days=budget_days, auditors=auditors)
+    # A copy, because the cached frame outlives this call and assignment sorts what it is
+    # given; handing out the cached object would let one request reorder the next one's.
+    plan = _plan_frame_cached(scope_key, budget_days).copy()
+    return assignment.build(_frame_for_scope(scope_key), budget_days=budget_days,
+                            auditors=auditors, plan=plan)
 
 
 def _frame_for_scope(scope_key: str) -> pd.DataFrame:

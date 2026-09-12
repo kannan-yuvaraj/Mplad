@@ -28,6 +28,7 @@ covered so the recommendation can be argued with.
 from __future__ import annotations
 
 import heapq
+import math
 import logging
 
 import numpy as np
@@ -123,6 +124,21 @@ def optimise(works: pd.DataFrame, budget_days: float = DEFAULT_BUDGET) -> pd.Dat
     # Agencies already open compete on single works, so a heap is enough for them.
     open_heap: list[tuple[float, str]] = []
 
+    # Agencies not yet open compete on the bundle they would unlock. Their queues never
+    # change while they are closed — a work is only ever popped from an agency that is
+    # committed in the same step — so each agency's unrestricted bundle ratio is computed
+    # once here, and only ever revised *downward* as the remaining budget shrinks. That
+    # makes it a valid upper bound, so the best candidate can be found by refreshing a
+    # handful of heap entries instead of rescanning every agency on every pick. Rescanning
+    # cost ~1.5 s per plan on 778 agencies, which the budget slider paid on every move.
+    order = {agency: index for index, agency in enumerate(queues)}
+    new_heap: list[tuple[float, int, str]] = []
+    for agency, queue in queues.items():
+        bound, _ = _best_bundle([row["rs_exposure"] for row in reversed(queue)], math.inf)
+        if bound > 0:
+            new_heap.append((-bound, order[agency], agency))
+    heapq.heapify(new_heap)
+
     while spent < budget_days:
         budget_left = budget_days - spent
 
@@ -133,16 +149,28 @@ def optimise(works: pd.DataFrame, budget_days: float = DEFAULT_BUDGET) -> pd.Dat
         if open_heap and SAME_AGENCY_DAYS <= budget_left:
             best_open_ratio = -open_heap[0][0]
 
-        # Opening a new agency is judged on the bundle it unlocks, not one work.
+        # Opening a new agency is judged on the bundle it unlocks, not one work. The heap
+        # holds upper bounds; refresh from the top until the best entry is one already
+        # priced at this budget, which is then the true maximum. Ties resolve by the
+        # agency's original position, exactly as scanning in order did.
         best_new_ratio, best_new_agency = 0.0, None
         if FIRST_VISIT_DAYS <= budget_left:
-            for agency, queue in queues.items():
-                if agency in committed or not queue:
+            priced_here: set[str] = set()
+            while new_heap:
+                negative, index, agency = new_heap[0]
+                if agency in committed or not queues[agency]:
+                    heapq.heappop(new_heap)
                     continue
-                exposures = [row["rs_exposure"] for row in reversed(queue)]
+                if agency in priced_here:
+                    best_new_ratio, best_new_agency = -negative, agency
+                    break
+                exposures = [row["rs_exposure"] for row in reversed(queues[agency])]
                 ratio, _ = _best_bundle(exposures, budget_left)
-                if ratio > best_new_ratio:
-                    best_new_ratio, best_new_agency = ratio, agency
+                priced_here.add(agency)
+                if ratio > 0:
+                    heapq.heapreplace(new_heap, (-ratio, index, agency))
+                else:
+                    heapq.heappop(new_heap)
 
         if best_open_ratio <= 0 and best_new_agency is None:
             break
