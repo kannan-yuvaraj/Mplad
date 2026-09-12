@@ -7,7 +7,7 @@ sdk: docker
 app_port: 8080
 pinned: false
 license: mit
-short_description: Investigation leads over 2.1 lakh MPLADS public works — never fraud verdicts
+short_description: Leads over 2.1 lakh MPLADS works, never fraud verdicts
 ---
 
 # MPLADS AI Forensic Monitoring & Decision Support

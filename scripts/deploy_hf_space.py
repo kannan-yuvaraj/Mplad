@@ -34,6 +34,27 @@ os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
+def _token_from_dotenv() -> None:
+    """Let `.env` carry HF_TOKEN, as an alternative to `hf auth login`.
+
+    Both keep the token off the command line and out of the shell history; `.env` is
+    gitignored and is never part of what this script uploads.
+    """
+    if os.environ.get("HF_TOKEN"):
+        return
+    env = ROOT / ".env"
+    if not env.is_file():
+        return
+    for line in env.read_text(encoding="utf-8").splitlines():
+        key, _, value = line.strip().partition("=")
+        if key.strip() == "HF_TOKEN" and value.strip():
+            os.environ["HF_TOKEN"] = value.strip().strip("\"'")
+            return
+
+
+_token_from_dotenv()
+
 TOP_LEVEL = ["Dockerfile", ".dockerignore", "requirements-serve.txt", "requirements-ocr.txt",
              "pyproject.toml"]
 TREES = ["src", "frontend", "salesforce_export"]
@@ -93,19 +114,31 @@ def main() -> None:
     api = HfApi()
     user = api.whoami()["name"]
     repo_id = args.space if "/" in args.space else f"{user}/{args.space}"
-    first_deploy = not api.repo_exists(repo_id, repo_type="space")
+    existing = (api.list_repo_files(repo_id, repo_type="space")
+                if api.repo_exists(repo_id, repo_type="space") else [])
+    # A Space that does not carry our Dockerfile is not yet running this app — whether it
+    # is brand new or was created through the website as a static page.
+    first_deploy = "Dockerfile" not in existing
 
     api.create_repo(repo_id, repo_type="space", space_sdk="docker",
                     private=args.private, exist_ok=True)
     if first_deploy:
-        api.add_space_secret(repo_id, "MPLADS_JWT_SECRET", secrets.token_urlsafe(48))
-        print("set MPLADS_JWT_SECRET (a fresh random value) as a Space secret")
+        try:
+            api.add_space_secret(repo_id, "MPLADS_JWT_SECRET", secrets.token_urlsafe(48))
+            print("set MPLADS_JWT_SECRET (a fresh random value) as a Space secret")
+        except Exception as exc:
+            # Managing secrets needs a token with write access to the Space's settings, which
+            # a fine-grained token may not carry. Not fatal: the site runs either way, it
+            # simply signs its tokens with the development default until a secret is set.
+            print("could not set MPLADS_JWT_SECRET (" + type(exc).__name__ + ").")
+            print("  Set it yourself at https://huggingface.co/spaces/" + repo_id
+                  + "/settings -> Variables and secrets -> New secret")
+            print("  name: MPLADS_JWT_SECRET   value: any long random text")
     elif args.public or args.private:
         api.update_repo_settings(repo_id, repo_type="space", private=args.private)
 
     wanted = {dest for dest, _ in files}
-    stale = [path for path in api.list_repo_files(repo_id, repo_type="space")
-             if path not in wanted and path != ".gitattributes"]
+    stale = [path for path in existing if path not in wanted and path != ".gitattributes"]
     operations = [CommitOperationAdd(path_in_repo=dest, path_or_fileobj=str(src))
                   for dest, src in files]
     operations += [CommitOperationDelete(path_in_repo=path) for path in stale]
