@@ -58,6 +58,10 @@ _token_from_dotenv()
 TOP_LEVEL = ["Dockerfile", ".dockerignore", "requirements-serve.txt", "requirements-ocr.txt",
              "pyproject.toml"]
 TREES = ["src", "frontend", "salesforce_export"]
+#: The built bundle is uploaded too. The Docker image builds its own and overwrites it,
+#: so it costs nothing there — but it lets a plain `python -m uvicorn` against a copy of
+#: this repo (Colab, a laptop, a VM) serve the site with no Node toolchain at all.
+INCLUDE_DIST = True
 ARTIFACTS = [
     "case_files.json", "works_scored.parquet", "duplicate_pairs.parquet", "archetypes.parquet",
     "stats.json", "temporal.json", "transparency.json", "validation.json",
@@ -67,9 +71,12 @@ ARTIFACT_TREES = ["models"]
 SKIP_PARTS = {"node_modules", "dist", "__pycache__", ".pytest_cache"}
 
 
-def _tree(base: Path):
+def _tree(base: Path, keep_dist: bool = False):
     for path in sorted(base.rglob("*")):
-        if path.is_file() and not (SKIP_PARTS & set(path.parts)) and path.suffix != ".pyc":
+        parts = set(path.parts)
+        if keep_dist and "dist" in parts:
+            parts.discard("dist")
+        if path.is_file() and not (SKIP_PARTS & parts) and path.suffix != ".pyc":
             yield path
 
 
@@ -78,7 +85,9 @@ def planned_files() -> list[tuple[str, Path]]:
     files = [("README.md", ROOT / "README_HF.md")]
     files += [(name, ROOT / name) for name in TOP_LEVEL]
     for tree in TREES:
-        files += [(p.relative_to(ROOT).as_posix(), p) for p in _tree(ROOT / tree)]
+        keep_dist = INCLUDE_DIST and tree == "frontend"
+        files += [(p.relative_to(ROOT).as_posix(), p)
+                  for p in _tree(ROOT / tree, keep_dist=keep_dist)]
     artifacts = ROOT / "data" / "artifacts"
     files += [(f"data/artifacts/{name}", artifacts / name) for name in ARTIFACTS]
     for tree in ARTIFACT_TREES:
