@@ -744,7 +744,10 @@ blockchain, no deep tabular models.
    pack, agency dossier, field scoreboard, case ageing — four new Agentforce topics in all
    ten languages, and `Audit_Assignment__c` in the SFDX package
 
-Recent commits (branch `main`, remote `SomeNobody21112/Thadam`):
+Recent commits (branch `main`, remote **`kannan-yuvaraj/Mplad`** — `origin`). The old
+`SomeNobody21112/Thadam` remote is kept under the name `thadam` and is no longer pushed to.
+This repository now carries the servable artifacts as well as the code, so a clone can
+serve the site without running the pipeline:
 
 ```
 7d651ba Carry the camera evidence into Salesforce
