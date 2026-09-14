@@ -515,7 +515,9 @@ def run(artifacts_dir: Path | None = None) -> pd.DataFrame:
         works = works.merge(
             duplicates.per_work_signal(pairs, works), on="work_ref", how="left"
         )
-        pairs.to_parquet(out / "duplicate_pairs.parquet", index=False)
+        # Row groups, because the API streams this file rather than loading it: one group
+        # of 223,407 rows is read all-or-nothing and costs 250 MB to touch at all.
+        pairs.to_parquet(out / "duplicate_pairs.parquet", index=False, row_group_size=20_000)
 
     works = compliance.evaluate(works)
     works = add_fusion(works)
@@ -527,7 +529,9 @@ def run(artifacts_dir: Path | None = None) -> pd.DataFrame:
     )
     case_files = [build_case_file(r) for _, r in worklist.iterrows()]
 
-    works.to_parquet(out / "works_scored.parquet", index=False)
+    # Row groups for the same reason as the pairs file: the API reads 22 of these 82
+    # columns and should never have to touch the whole thing at once to do it.
+    works.to_parquet(out / "works_scored.parquet", index=False, row_group_size=25_000)
     (out / "case_files.json").write_text(json.dumps(case_files, default=str), encoding="utf-8")
     catalog.to_parquet(out / "archetypes.parquet", index=False)
 

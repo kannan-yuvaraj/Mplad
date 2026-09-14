@@ -20,7 +20,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 
 from mplads import config
 
@@ -90,6 +89,11 @@ def detect(works: pd.DataFrame) -> pd.DataFrame:
 
         matrix = vectors[block["_row"].to_numpy()]
         k = min(NEIGHBOURS, len(block))
+        # Imported here, not at the top: this module is also imported by the API, which
+        # only ever reads the pairs the pipeline already found. Loading scikit-learn to do
+        # that costs 70 MB of a server's memory to fit nothing.
+        from sklearn.neighbors import NearestNeighbors
+
         nn = NearestNeighbors(n_neighbors=k, metric="cosine").fit(matrix)
         distances, indices = nn.kneighbors(matrix)
 

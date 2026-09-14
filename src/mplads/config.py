@@ -157,6 +157,12 @@ _load_dotenv()
 JWT_SECRET: str = _os.environ.get("MPLADS_JWT_SECRET", "dev-only-not-a-production-secret")
 REQUIRE_AUTH: bool = _os.environ.get("MPLADS_REQUIRE_AUTH", "0") == "1"
 
+#: Set on a host with little memory — a free container is typically 512 MB. It does not
+#: change a single answer the service gives; it trades the pre-warmed budget slider and a
+#: large plan cache for about 150 MB, so the first move of the slider costs a quarter of a
+#: second instead of nothing.
+LOW_MEMORY: bool = _os.environ.get("MPLADS_LOW_MEMORY", "0") == "1"
+
 #: Append-only, hash-chained audit log location.
 AUDIT_LOG_PATH = REPO_ROOT / "data" / "artifacts" / "audit_log.sqlite"
 

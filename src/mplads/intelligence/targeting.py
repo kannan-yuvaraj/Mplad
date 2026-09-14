@@ -328,7 +328,7 @@ def coverage_curve(works: pd.DataFrame, budgets: tuple[int, ...] = BUDGET_PRESET
 
 
 def build(works: pd.DataFrame, budget_days: float = DEFAULT_BUDGET,
-          curve: list[dict] | None = None) -> dict:
+          curve: list[dict] | None = None, leads: pd.DataFrame | None = None) -> dict:
     """Everything the audit-plan screen needs, from the scored works table.
 
     `curve` is accepted because the coverage curve does not depend on `budget_days` at all —
@@ -336,7 +336,11 @@ def build(works: pd.DataFrame, budget_days: float = DEFAULT_BUDGET,
     meant five extra runs of the optimiser to redraw a line that had not changed, which was
     most of the wait on this screen.
     """
-    leads = works[works["band"].isin(["HIGH", "MEDIUM"])].copy()
+    # `leads` is accepted for the same reason as `curve`: which works are leads does not
+    # depend on the budget, and selecting them copies 37,705 rows. A caller moving a slider
+    # holds that selection already. Treated as read-only — `optimise` copies what it needs.
+    if leads is None:
+        leads = works[works["band"].isin(["HIGH", "MEDIUM"])].copy()
     if leads.empty:
         return {"available": False, "note": "no leads to plan against"}
 

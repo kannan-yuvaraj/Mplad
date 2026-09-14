@@ -12,9 +12,12 @@ identity provider and nothing else changes.
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
+import sys
 import threading
+import time
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -33,6 +36,7 @@ from mplads.api import auth
 from mplads.api.strings import UI
 from mplads.api import translations
 from mplads.api.audit import AuditLog
+from mplads.api.stores import CaseStore, DuplicateStore
 from mplads.intelligence import assignment, calibration, dossier, targeting
 from mplads.api.auth import Principal, current_principal
 
@@ -82,7 +86,12 @@ async def lifespan(_: FastAPI):
     # Each costs about a quarter of a second to plan and nothing at all afterwards; warming
     # the whole range takes ~15 s of one background thread and makes every later move on
     # the Visit Plan and Who Goes Where screens instant.
-    threading.Thread(target=_warm_budget_slider, name="plan-warm", daemon=True).start()
+    if not config.LOW_MEMORY:
+        threading.Thread(target=_warm_budget_slider, name="plan-warm", daemon=True).start()
+    else:
+        LOGGER.info("low-memory mode: the budget slider warms as it is used")
+    threading.Thread(target=_housekeeping, name="memory-housekeeping", daemon=True).start()
+    _release_memory()
     yield
     ocr.shutdown()
 
@@ -105,6 +114,33 @@ ROLES: dict[str, dict] = {
 }
 
 
+def intern(value):
+    """`sys.intern` where the value is text, and a pass-through where it is not.
+
+    Several identity fields are legitimately missing — a Rajya Sabha work has no district
+    office — and interning must not turn an absent value into a present one.
+    """
+    return sys.intern(value) if type(value) is str else value
+
+
+def pa_schema_with_dictionaries(schema, columns: list[str]):
+    """The same Arrow schema with the named string columns dictionary-encoded.
+
+    Dictionary encoding is what pandas calls a category: 210,993 rows carry 36 state names
+    and 778 agency names, so storing the text once and an index per row is the difference
+    between 66 MB and several hundred.
+    """
+    import pyarrow as pa
+
+    fields = []
+    for field in schema:
+        if field.name in columns and pa.types.is_string(field.type):
+            fields.append(pa.field(field.name, pa.dictionary(pa.int32(), pa.string())))
+        else:
+            fields.append(field)
+    return pa.schema(fields)
+
+
 def _read(path: Path) -> dict | list:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
@@ -116,35 +152,39 @@ class Store:
         self.transparency = _read(artifacts / "transparency.json")
         self.metrics = _read(artifacts / "models" / "metrics.json")
 
-        cases = _read(artifacts / "case_files.json")
-        self.cases_by_ref = {c["work_ref"]: c for c in cases}
+        # The case files live in SQLite (stores.CaseStore): 37,705 nested records are 400 MB
+        # as dictionaries and a request reads one. The worklist below is the only thing kept
+        # in memory from them — it is the flat summary every queue page renders.
+        self.cases_by_ref = CaseStore(artifacts)
+        cases = self.cases_by_ref.values()
         self.worklist = [
             {
                 "work_ref": c["work_ref"],
                 "description": c["identity"]["description"],
-                "state": c["identity"]["state"],
-                "constituency": c["identity"]["constituency"],
-                "implementing_agency": c["identity"]["implementing_agency"],
-                "mp_name": c["identity"]["mp_name"],
-                "archetype": c["archetype"]["label"],
-                "band": c["confidence_band"],
+                # `sys.intern` on the repeating fields: 37,705 rows carry 36 state names
+                # and 778 agency names, and JSON hands back a separate string object for
+                # every one of them. Sharing them costs nothing and saves ~25 MB.
+                "state": intern(c["identity"]["state"]),
+                "constituency": intern(c["identity"]["constituency"]),
+                "implementing_agency": intern(c["identity"]["implementing_agency"]),
+                "mp_name": intern(c["identity"]["mp_name"]),
+                "archetype": intern(c["archetype"]["label"]),
+                "band": intern(c["confidence_band"]),
                 "n_families": c["n_signal_families"],
                 "priority": c["priority"],
                 "exposure_rupees": c["exposure_rupees"],
                 "audit_roi": c["audit_roi"],
                 "recommended_amount": c["identity"]["recommended_amount"],
-                "early_warning": c.get("early_warning", {}).get("level", "LOW"),
+                "early_warning": intern(c.get("early_warning", {}).get("level", "LOW")),
                 "compliance_flags": len(c.get("compliance_findings", [])),
                 "has_duplicate": c.get("duplicate") is not None,
-                "signals": [e["signal"] for e in c.get("evidence", [])],
+                "signals": [intern(e["signal"]) for e in c.get("evidence", [])],
             }
             for c in cases
         ]
 
-        dupes = artifacts / "duplicate_pairs.parquet"
-        self.duplicate_pairs = (
-            pd.read_parquet(dupes) if dupes.exists() else pd.DataFrame()
-        )
+        # 223,407 pairs are 248 MB in pandas and the screen shows fifty. Read per question.
+        self.duplicate_pairs = DuplicateStore(artifacts / "duplicate_pairs.parquet")
         self._artifacts = artifacts
         self._corpus: pd.DataFrame | None = None
         self._plan_frame: pd.DataFrame | None = None
@@ -187,23 +227,42 @@ class Store:
             if not path.exists():
                 self._corpus = pd.DataFrame(columns=self.CORPUS_COLUMNS)
             else:
-                frame = pd.read_parquet(path, columns=self.CORPUS_COLUMNS)
-                for column in self.CORPUS_CATEGORICAL:
-                    frame[column] = frame[column].astype("category")
-                self._corpus = frame
-                LOGGER.info("corpus loaded: %s works", f"{len(frame):,}")
+                import pyarrow as pa
+                import pyarrow.dataset as ds
+
+                # Streamed rather than read whole. `pd.read_parquet` on 22 of these 82
+                # columns peaked at 280 MB — Arrow reads ahead on several threads, and on
+                # a 512 MB host that read-ahead is the whole difference between running
+                # and being killed. One batch at a time, cast to dictionaries as it
+                # arrives (which is what pandas calls a category: 210,993 rows carry 36
+                # state names), and `self_destruct` drops each buffer as pandas takes it.
+                scanner = ds.dataset(path, format="parquet").scanner(
+                    columns=self.CORPUS_COLUMNS, batch_size=25_000,
+                    use_threads=False, batch_readahead=1, fragment_readahead=1)
+                schema = pa_schema_with_dictionaries(
+                    scanner.projected_schema, self.CORPUS_CATEGORICAL)
+                batches = [batch.cast(schema) for batch in scanner.to_batches()]
+                table = pa.Table.from_batches(batches, schema=schema)
+                del batches
+                self._corpus = table.to_pandas(split_blocks=True, self_destruct=True)
+                del table
+                LOGGER.info("corpus loaded: %s works", f"{len(self._corpus):,}")
         return self._corpus
 
     @property
     def plan_frame(self) -> pd.DataFrame:
         """The lean frame the audit planner runs on, loaded once and held."""
         if self._plan_frame is None:
-            path = self._artifacts / "works_scored.parquet"
-            if not path.exists():
+            # Every planner column is already in the corpus, so this is a narrow copy of a
+            # frame we hold rather than a second read of the same file. Reading it again
+            # cost 70 MB and a few seconds to end up with the same numbers.
+            corpus = self.corpus
+            missing = [c for c in self.PLAN_COLUMNS if c not in corpus.columns]
+            if missing:
                 self._plan_frame = pd.DataFrame(columns=self.PLAN_COLUMNS)
             else:
-                self._plan_frame = pd.read_parquet(path, columns=self.PLAN_COLUMNS)
-                LOGGER.info("audit planner frame loaded: %s works",
+                self._plan_frame = corpus[self.PLAN_COLUMNS].copy()
+                LOGGER.info("audit planner frame taken from the corpus: %s works",
                             f"{len(self._plan_frame):,}")
         return self._plan_frame
 
@@ -616,6 +675,46 @@ def _scope_key(principal: Principal) -> str:
 #: jurisdiction has to be part of the key and only this layer knows it. Small enough to
 #: hold every budget preset for every demo account at once; the artifacts are read-only
 #: between pipeline runs, so nothing can go stale under it while the service is up.
+def _release_memory() -> None:
+    """Give the working memory of start-up back to the operating system.
+
+    Reading parquet leaves large blocks in Arrow's pool, and they are not freed by garbage
+    collection because nothing in Python owns them any more — the pool is simply holding
+    them for reuse. On a machine with memory to spare that is the right behaviour; on a
+    512 MB host it is 30-something megabytes of the allowance held against a read that has
+    already finished.
+    """
+    gc.collect()
+    try:
+        import pyarrow
+
+        pyarrow.default_memory_pool().release_unused()
+    except Exception:  # pragma: no cover - a memory hint must never take the API down
+        pass
+
+
+#: How often the idle memory left behind by serving is handed back.
+HOUSEKEEPING_SECONDS = 120
+
+#: How many (jurisdiction, budget) plans are remembered. Each is a plan, its comparison
+#: table and its per-state totals, so the difference between 128 and 12 is real memory.
+PLAN_CACHE = 12 if config.LOW_MEMORY else 128
+
+
+def _housekeeping() -> None:
+    """Give back, periodically, what serving requests leaves lying around.
+
+    Every question that filters a frame or scans the parquet allocates and frees, and both
+    pandas and Arrow keep the freed blocks for reuse rather than returning them. Over a
+    session of moving the budget slider that reached a few hundred megabytes of memory the
+    process was holding and not using — invisible on a laptop, fatal on a 512 MB host, where
+    what gets measured is what the process holds, not what it needs.
+    """
+    while True:
+        time.sleep(HOUSEKEEPING_SECONDS)
+        _release_memory()
+
+
 def _warm_budget_slider() -> None:
     """Fill the plan cache for every slider position, presets first, national scope only.
 
@@ -640,12 +739,14 @@ def _warm_budget_slider() -> None:
         except Exception:
             return
     LOGGER.info("plan cache warm: %s budgets", len(seen))
+    _release_memory()
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=PLAN_CACHE)
 def _plan_cached(scope_key: str, budget_days: float) -> dict:
     return targeting.build(_frame_for_scope(scope_key), budget_days=budget_days,
-                           curve=_curve_cached(scope_key))
+                           curve=_curve_cached(scope_key),
+                           leads=_leads_for_scope(scope_key))
 
 
 #: The coverage curve does not depend on the budget — it always reports the same fixed
@@ -653,22 +754,28 @@ def _plan_cached(scope_key: str, budget_days: float) -> dict:
 #: five runs of the optimiser on every request, redrawing a line that had not moved.
 @lru_cache(maxsize=16)
 def _curve_cached(scope_key: str) -> list[dict]:
-    frame = _frame_for_scope(scope_key)
-    leads = frame[frame["band"].isin(["HIGH", "MEDIUM"])]
+    leads = _leads_for_scope(scope_key)
     return targeting.coverage_curve(leads) if not leads.empty else []
+
+
+#: The leads within a jurisdiction do not depend on the budget, but selecting them copies
+#: 37,705 rows — and the budget slider asked for that copy once per position. Cached per
+#: jurisdiction instead. Treat the result as read-only; `optimise` does.
+@lru_cache(maxsize=16)
+def _leads_for_scope(scope_key: str) -> pd.DataFrame:
+    frame = _frame_for_scope(scope_key)
+    return frame[frame["band"].isin(["HIGH", "MEDIUM"])]
 
 
 #: The plan itself, as a frame, cached per (jurisdiction, budget). The rota and the audit
 #: plan screen both need it, and the team size does not change it — so the auditors dial
 #: costs a deal of the same trips rather than a fresh run of the optimiser.
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=PLAN_CACHE)
 def _plan_frame_cached(scope_key: str, budget_days: float) -> pd.DataFrame:
-    frame = _frame_for_scope(scope_key)
-    leads = frame[frame["band"].isin(["HIGH", "MEDIUM"])]
-    return targeting.optimise(leads, budget_days=budget_days)
+    return targeting.optimise(_leads_for_scope(scope_key), budget_days=budget_days)
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=PLAN_CACHE)
 def _rota_cached(scope_key: str, budget_days: float, auditors: int) -> dict:
     # A copy, because the cached frame outlives this call and assignment sorts what it is
     # given; handing out the cached object would let one request reorder the next one's.
@@ -804,7 +911,7 @@ def agency_dossier(agency: str,
     return dossier.build(
         frame, match,
         cases_by_ref=store().cases_by_ref,
-        duplicate_pairs=store().duplicate_pairs,
+        duplicate_pairs=store().duplicate_pairs.for_refs,
         verifications=verifications,
     )
 
@@ -823,7 +930,7 @@ def model_calibration() -> dict:
     except Exception as exc:
         raise HTTPException(503, f"verification store unavailable: {type(exc).__name__}")
 
-    bands = {ref: case["confidence_band"] for ref, case in store().cases_by_ref.items()}
+    bands = store().cases_by_ref.bands()
     result = calibration.build(verifications, bands, field.CONFIRMS_CONCERN)
     result["label_readiness"] = field.label_readiness()
     return result
@@ -1177,9 +1284,7 @@ def archetypes(limit: int = Query(50, ge=1, le=100)) -> list[dict]:
 #: request, including every page of the same table, at about two seconds a time.
 @lru_cache(maxsize=1)
 def _concerning_pairs() -> pd.DataFrame:
-    from mplads.intelligence import duplicates as dup_mod
-
-    return dup_mod.concerning(store().duplicate_pairs)
+    return store().duplicate_pairs.concerning()
 
 
 @app.get("/api/duplicates")
@@ -1190,21 +1295,26 @@ def duplicate_pairs(
     classification: str | None = None,
     concerning_only: bool = True,
 ) -> dict:
-    frame = store().duplicate_pairs
+    pairs = store().duplicate_pairs
     summary = store().stats.get("duplicates", {})
-    if frame.empty:
+    if pairs.empty:
         return {"total": 0, "items": [], "summary": summary}
 
     if concerning_only:
+        # The concerning subset is cached — it is what the screen opens on every time.
         frame = _concerning_pairs()
-    if state:
-        frame = frame[frame["state_name"] == state]
-    if classification:
-        frame = frame[frame["classification"] == classification]
+        if state:
+            frame = frame[frame["state_name"] == state]
+        if classification:
+            frame = frame[frame["classification"] == classification]
+        total, page = len(frame), frame.iloc[offset : offset + limit]
+    else:
+        # Everything else is a filtered read of the parquet: the rows nobody asked for are
+        # never brought into memory.
+        total, page = pairs.page(offset, limit, state=state, classification=classification)
 
-    page = frame.iloc[offset : offset + limit]
     return {
-        "total": int(len(frame)),
+        "total": int(total),
         "items": json.loads(page.to_json(orient="records")),
         "summary": summary,
     }

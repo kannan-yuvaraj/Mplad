@@ -21,7 +21,7 @@ ways: visits that cleared works are shown with the same weight as visits that di
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -71,7 +71,7 @@ def agencies(frame: pd.DataFrame, limit: int = 40) -> list[dict[str, Any]]:
 
 def build(frame: pd.DataFrame, agency: str, *,
           cases_by_ref: dict[str, Any] | None = None,
-          duplicate_pairs: pd.DataFrame | None = None,
+          duplicate_pairs: "pd.DataFrame | Callable[[set], pd.DataFrame] | None" = None,
           verifications: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Everything worth knowing about one implementing agency before going there.
 
@@ -138,6 +138,10 @@ def build(frame: pd.DataFrame, agency: str, *,
     # Duplicates *within* this agency are the ones a single visit can settle: the officer
     # is already standing where both works are supposed to be.
     internal_duplicates = []
+    if callable(duplicate_pairs):
+        # The API passes a lookup rather than the whole table: 223,407 pairs are 248 MB and
+        # this needs the handful that sit inside one agency.
+        duplicate_pairs = duplicate_pairs(set(mine["work_ref"]))
     if duplicate_pairs is not None and not duplicate_pairs.empty:
         refs = set(mine["work_ref"])
         columns = set(duplicate_pairs.columns)

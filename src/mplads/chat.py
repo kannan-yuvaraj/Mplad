@@ -83,10 +83,21 @@ def _haystack():
         import pandas as pd
 
         return pd.Series(dtype=str)
-    joined = frame["work_description"].fillna("").astype(str)
-    for column in SEARCH_COLUMNS[1:]:
-        joined = joined + " " + frame[column].astype(str)
-    return joined.str.lower()
+    import pandas as pd
+
+    # Built in slices and stored Arrow-backed. Joining seven columns across all 210,993
+    # rows at once allocates a fresh 211k-string column per column joined — seven live at
+    # the peak — and the finished index costs 76 MB as Python objects against 30 MB as one
+    # Arrow buffer. Searching is a `str.contains` either way.
+    pieces = []
+    for start in range(0, len(frame), 25_000):
+        block = frame.iloc[start : start + 25_000]
+        joined = block["work_description"].fillna("").astype(str)
+        for column in SEARCH_COLUMNS[1:]:
+            joined = joined + " " + block[column].astype(str)
+        pieces.append(joined.str.lower().astype("string[pyarrow]"))
+        del joined
+    return (pd.concat(pieces) if pieces else pd.Series(dtype="string[pyarrow]"))
 
 
 def warm() -> None:
