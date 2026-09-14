@@ -47,11 +47,26 @@ WORKDIR $HOME/app
 COPY --chown=user requirements-serve.txt ./
 RUN pip install --no-cache-dir --user -r requirements-serve.txt
 
-# OCR: PyTorch's CPU build first (~200 MB) so Docling does not drag in the CUDA build.
+# OCR. Photographs are read by RapidOCR, which is small and always installed. Documents are
+# read by Docling, which needs PyTorch — about 2 GB of image, and ~300 MB of memory the
+# first time a document is opened. PyTorch's CPU build is installed first so Docling does
+# not drag in the CUDA build that PyPI serves by default on Linux.
+#
+# The build argument deliberately carries the same name as the runtime setting, because it
+# is the same decision: a host told not to read documents should not carry the machinery to
+# read them. Render supplies a service's environment variables to the build as arguments, so
+# setting MPLADS_DOCUMENT_OCR=0 there yields both a small image and a service that reports
+# documents as unavailable. Where a platform does not supply it the image is merely larger —
+# the runtime setting still governs, and PyTorch is never imported.
+ARG MPLADS_DOCUMENT_OCR=1
 COPY --chown=user requirements-ocr.txt ./
-RUN pip install --no-cache-dir --user --index-url https://download.pytorch.org/whl/cpu \
-        torch torchvision \
- && pip install --no-cache-dir --user -r requirements-ocr.txt
+RUN if [ "$MPLADS_DOCUMENT_OCR" = "0" ]; then \
+        pip install --no-cache-dir --user "rapidocr-onnxruntime>=1.4" ; \
+    else \
+        pip install --no-cache-dir --user --index-url https://download.pytorch.org/whl/cpu \
+            torch torchvision \
+     && pip install --no-cache-dir --user -r requirements-ocr.txt ; \
+    fi
 
 COPY --chown=user pyproject.toml ./
 COPY --chown=user src/ ./src/

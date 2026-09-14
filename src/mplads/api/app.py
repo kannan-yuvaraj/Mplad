@@ -50,34 +50,16 @@ async def lifespan(_: FastAPI):
     Done here rather than lazily so the first officer to ask something does not pay nine
     seconds for everyone else's convenience.
     """
-    try:
-        chatbot.warm()
-    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
-        LOGGER.warning("search index not pre-built (%s); it will build on first use",
-                       type(exc).__name__)
-    try:
-        # The plan at the default budget is what the Audit Plan screen asks for first, and
-        # it is ten seconds of arithmetic. Paying it here means no officer ever does.
-        _plan_cached("*", float(targeting.DEFAULT_BUDGET))
-        _rota_cached("*", float(targeting.DEFAULT_BUDGET), 4)
-    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
-        LOGGER.warning("audit plan not pre-built (%s); it will build on first use",
-                       type(exc).__name__)
-    try:
-        # Find out here whether the live model actually answers. Without this the *first*
-        # visitor of the day pays the round-trip that discovers the key has no credits,
-        # and reads it as the site being slow. `llm._ask` remembers the answer, so this is
-        # the only time anything waits for it.
-        llm.portfolio_insight(store().stats, "en")
-    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
-        LOGGER.info("insight not pre-built (%s)", type(exc).__name__)
-    try:
-        # Touching the duplicate frame here pulls it into memory and lets pandas build its
-        # indices, which is most of the cost of the first Near-Duplicates page load.
-        if not store().duplicate_pairs.empty:
-            _concerning_pairs()
-    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
-        LOGGER.info("duplicate frame not warmed (%s)", type(exc).__name__)
+    # On a normal host this runs before the port opens, which is the point: no officer
+    # ever pays a cold cost. On a host that sleeps when nobody is looking — a free
+    # container — that same minute is paid by whoever wakes it, staring at a blank tab,
+    # and the platform may give up waiting and call the deploy failed. So there it runs
+    # behind the open port instead, and the first page in is the only slow one.
+    if config.LOW_MEMORY:
+        threading.Thread(target=_warm_everything, name="warm", daemon=True).start()
+        LOGGER.info("low-memory mode: warming behind the open port")
+    else:
+        _warm_everything()
     # Surya's server takes tens of seconds to load its model. Started in the background so
     # the API is answering immediately, and so the first officer to photograph a board is
     # not the one who waits for it. If it cannot start, photographs fall back to RapidOCR.
@@ -675,6 +657,44 @@ def _scope_key(principal: Principal) -> str:
 #: jurisdiction has to be part of the key and only this layer knows it. Small enough to
 #: hold every budget preset for every demo account at once; the artifacts are read-only
 #: between pipeline runs, so nothing can go stale under it while the service is up.
+def _warm_everything() -> None:
+    """Everything a first visitor would otherwise wait for, each failure survivable.
+
+    Nothing in here is required for correctness — every one of these is a cache that would
+    fill itself on first use. They are done up front so that filling happens once, on our
+    time, rather than in front of whoever opens the site first.
+    """
+    try:
+        chatbot.warm()
+    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
+        LOGGER.warning("search index not pre-built (%s); it will build on first use",
+                       type(exc).__name__)
+    try:
+        # The plan at the default budget is what the Audit Plan screen asks for first, and
+        # it is ten seconds of arithmetic. Paying it here means no officer ever does.
+        _plan_cached("*", float(targeting.DEFAULT_BUDGET))
+        _rota_cached("*", float(targeting.DEFAULT_BUDGET), 4)
+    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
+        LOGGER.warning("audit plan not pre-built (%s); it will build on first use",
+                       type(exc).__name__)
+    try:
+        # Find out here whether the live model actually answers. Without this the *first*
+        # visitor of the day pays the round-trip that discovers the key has no credits,
+        # and reads it as the site being slow. `llm._ask` remembers the answer, so this is
+        # the only time anything waits for it.
+        llm.portfolio_insight(store().stats, "en")
+    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
+        LOGGER.info("insight not pre-built (%s)", type(exc).__name__)
+    try:
+        # Touching the duplicate pairs here builds the concerning subset, which is most of
+        # the cost of the first Near-Duplicates page load.
+        if not store().duplicate_pairs.empty:
+            _concerning_pairs()
+    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
+        LOGGER.info("duplicate frame not warmed (%s)", type(exc).__name__)
+    _release_memory()
+
+
 def _release_memory() -> None:
     """Give the working memory of start-up back to the operating system.
 

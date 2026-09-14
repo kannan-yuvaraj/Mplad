@@ -163,6 +163,13 @@ REQUIRE_AUTH: bool = _os.environ.get("MPLADS_REQUIRE_AUTH", "0") == "1"
 #: second instead of nothing.
 LOW_MEMORY: bool = _os.environ.get("MPLADS_LOW_MEMORY", "0") == "1"
 
+#: Document reading (Docling) loads PyTorch, which is ~300 MB of resident memory the first
+#: time a document is uploaded. On a 512 MB host that is not a slow feature, it is a killed
+#: process — and a container that dies when someone uploads a PDF is worse than one that
+#: says it cannot read PDFs. Set to 0 there; the screen then reports documents as
+#: unavailable instead of accepting one and falling over.
+DOCUMENT_OCR: bool = _os.environ.get("MPLADS_DOCUMENT_OCR", "1") != "0"
+
 #: Append-only, hash-chained audit log location.
 AUDIT_LOG_PATH = REPO_ROOT / "data" / "artifacts" / "audit_log.sqlite"
 

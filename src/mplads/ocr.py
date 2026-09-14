@@ -344,6 +344,8 @@ class _Docling:
         self._lock = threading.Lock()
 
     def available(self) -> bool:
+        if not config.DOCUMENT_OCR:
+            return False
         return self._failed is None and importlib.util.find_spec("docling") is not None
 
     def _ocr_options(self):

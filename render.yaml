@@ -1,0 +1,55 @@
+# Render Blueprint — the whole product as one free web service.
+#
+# Render reads this file when you point it at the repository, so the settings that matter
+# are committed rather than typed into a dashboard and forgotten. One service: the Docker
+# image already contains the built React app, the API and the pre-computed artifacts, and
+# the browser only ever talks to one origin.
+#
+# WHAT THE FREE INSTANCE IS, honestly:
+#   * 512 MB of memory and 0.1 of a CPU. The service fits — fully warmed it is about
+#     430 MB — but it fits by design, not by luck. See docs/DEPLOY_RENDER.md.
+#   * It SLEEPS after 15 minutes with no visitor, and the next visitor waits roughly a
+#     minute while it wakes. The link keeps working; it is just slow to answer first.
+#   * It has NO DISK. Anything written while it runs — site verifications recorded through
+#     the site, the audit chain of those writes — is gone at the next restart. The
+#     artifacts in the image are read-only and unaffected, so the site always comes back
+#     exactly as deployed. A demonstration is fine; a pilot needs a paid disk.
+
+services:
+  - type: web
+    name: thadam
+    runtime: docker
+    plan: free
+    # Mumbai is not offered on the free plan; Singapore is the closest that is.
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Render watches this to decide whether the service is alive. It answers as soon as the
+    # port opens, which on this host is before the caches are warm — deliberately, so a
+    # wake-up is not mistaken for a failed deploy. See `_warm_everything` in api/app.py.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Fit inside 512 MB: a smaller plan cache, and the budget slider warms as it is used
+      # rather than all fifty positions up front. It changes no answer the service gives.
+      - key: MPLADS_LOW_MEMORY
+        value: "1"
+      # Photographs are read by RapidOCR, and the screen says so. Surya needs a GPU and a
+      # 1.5 GB model; on this host it would take minutes per photograph.
+      - key: MPLADS_OCR_ENGINES
+        value: rapidocr
+      # Document reading needs PyTorch, which would not fit. The Documents panel reports
+      # itself unavailable instead of accepting a PDF and killing the container.
+      - key: MPLADS_DOCUMENT_OCR
+        value: "0"
+      # Render generates this once and keeps it. Without it the service would sign tokens
+      # with the development default, which is published in this repository.
+      - key: MPLADS_JWT_SECRET
+        generateValue: true
+      # Reading stays open so a judge can look without an account; writing a site
+      # verification still requires a signed-in name. `auth.require_identity` enforces that
+      # whatever this says.
+      - key: MPLADS_REQUIRE_AUTH
+        value: "0"
+      - key: PYTHONUNBUFFERED
+        value: "1"
