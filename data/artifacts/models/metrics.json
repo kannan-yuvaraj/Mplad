@@ -1,0 +1,56 @@
+{
+  "archetype_clustering": {
+    "model": "MiniBatchKMeans over all-MiniLM-L6-v2 embeddings",
+    "k_chosen": 50,
+    "silhouette_at_chosen_k": 0.05,
+    "k_sweep": [
+      {
+        "k": 20,
+        "silhouette": 0.0474,
+        "inertia": 96342.0
+      },
+      {
+        "k": 30,
+        "silhouette": 0.0498,
+        "inertia": 91713.9
+      },
+      {
+        "k": 40,
+        "silhouette": 0.0492,
+        "inertia": 89016.7
+      },
+      {
+        "k": 50,
+        "silhouette": 0.05,
+        "inertia": 87022.2
+      },
+      {
+        "k": 60,
+        "silhouette": 0.045,
+        "inertia": 85242.0
+      }
+    ],
+    "n_clusters": 50,
+    "n_descriptions_clustered": 187865,
+    "note": "Silhouette ~0.04-0.05 is a cluster-separation metric, never accuracy. Clusters rest on manual coherence, not this number."
+  },
+  "completion_risk": {
+    "model": "Cox proportional hazards (lifelines), right-censored at snapshot",
+    "c_index_heldout": 0.6759,
+    "n_fit": 60000,
+    "n_events_total": 84311,
+    "n_censored_total": 125896,
+    "horizon_days": 365,
+    "note": "C-index ~0.7 means the model ranks which works finish sooner better than chance. It is a completion-time model, never a probability of wrongdoing."
+  },
+  "anomaly_detection": {
+    "model": "IsolationForest over standardised [log_amount, age_days]",
+    "contamination": 0.02,
+    "n_flagged": 4220,
+    "note": "A multivariate outlier flag, corroborating other signals \u2014 never a verdict."
+  },
+  "embedding": {
+    "model": "sentence-transformers/all-MiniLM-L6-v2 (pretrained, 384-d)",
+    "role": "feature extractor, reused as a cache; not trained by us"
+  }
+}

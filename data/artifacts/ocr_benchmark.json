@@ -1,0 +1,1010 @@
+{
+  "summary": {
+    "overall": {
+      "surya": {
+        "exact_reference": 0.9318181818181818,
+        "reference_found": 0.9545454545454546,
+        "amount_within_1pct": 0.9318181818181818,
+        "seconds_per_board": 20.378999999999998,
+        "errors": 0
+      },
+      "rapidocr": {
+        "exact_reference": 0.9090909090909091,
+        "reference_found": 0.9090909090909091,
+        "amount_within_1pct": 0.7272727272727273,
+        "seconds_per_board": 2.019,
+        "errors": 0
+      }
+    },
+    "by_condition": {
+      "clean": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "tilt": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "perspective": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "blur": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "motion": {
+        "surya": 0.5,
+        "rapidocr": 0.0
+      },
+      "faded": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "dim": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "noise": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "jpeg": {
+        "surya": 0.75,
+        "rapidocr": 1.0
+      },
+      "distant": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      },
+      "harsh": {
+        "surya": 1.0,
+        "rapidocr": 1.0
+      }
+    },
+    "agreement": {
+      "pair": [
+        "surya",
+        "rapidocr"
+      ],
+      "both_found": 40,
+      "agree": 39,
+      "agree_and_wrong": 0,
+      "disagree": 1,
+      "either_exact": 0.9545454545454546
+    }
+  },
+  "rows": [
+    {
+      "work_ref": "MP3019102-W170823",
+      "amount": 499950.0,
+      "condition": "clean",
+      "surya": {
+        "read": "MP3019102-W170823",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 16.542,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019102-W170823",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 3.615,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3025895-W241989",
+      "amount": 495000.0,
+      "condition": "tilt",
+      "surya": {
+        "read": "MP3025895-W241989",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 21.808,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3025895-W241989",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 2.099,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017250-W273959",
+      "amount": 200000.0,
+      "condition": "perspective",
+      "surya": {
+        "read": "MP3017250-W273959",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 16.962,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017250-W273959",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.906,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017461-W56219",
+      "amount": 1160772.0,
+      "condition": "blur",
+      "surya": {
+        "read": "MP3017461-W56219",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 19.447,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017461-W56219",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.122,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018338-W64328",
+      "amount": 125000.0,
+      "condition": "motion",
+      "surya": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": true,
+        "seconds": 20.564,
+        "error": null
+      },
+      "rapidocr": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": false,
+        "seconds": 0.895,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018357-W98033",
+      "amount": 473090.0,
+      "condition": "faded",
+      "surya": {
+        "read": "MP3018357-W98033",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 16.208,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018357-W98033",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.666,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042523-W281870",
+      "amount": 180000.0,
+      "condition": "dim",
+      "surya": {
+        "read": "MP3042523-W281870",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 21.377,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042523-W281870",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.431,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019162-W56147",
+      "amount": 299485.0,
+      "condition": "noise",
+      "surya": {
+        "read": "MP3019162-W56147",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.246,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019162-W56147",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.218,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019001-W238449",
+      "amount": 400000.0,
+      "condition": "jpeg",
+      "surya": {
+        "read": "MP3019001-W238449",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.686,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019001-W238449",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.044,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019115-W102067",
+      "amount": 300000.0,
+      "condition": "distant",
+      "surya": {
+        "read": "MP3019115-W102067",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 25.839,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019115-W102067",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.697,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042404-W198950",
+      "amount": 1000000.0,
+      "condition": "harsh",
+      "surya": {
+        "read": "MP3042404-W198950",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 23.811,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042404-W198950",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.618,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018995-W82244",
+      "amount": 394800.0,
+      "condition": "clean",
+      "surya": {
+        "read": "MP3018995-W82244",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.277,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018995-W82244",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.123,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017490-W17041",
+      "amount": 240000.0,
+      "condition": "tilt",
+      "surya": {
+        "read": "MP3017490-W17041",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 23.098,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017490-W17041",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.013,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017425-W21612",
+      "amount": 156733.0,
+      "condition": "perspective",
+      "surya": {
+        "read": "MP3017425-W21612",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 19.965,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017425-W21612",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.678,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042795-W196806",
+      "amount": 200000.0,
+      "condition": "blur",
+      "surya": {
+        "read": "MP3042795-W196806",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 17.193,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042795-W196806",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.293,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019185-W58972",
+      "amount": 765400.0,
+      "condition": "motion",
+      "surya": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": true,
+        "seconds": 19.282,
+        "error": null
+      },
+      "rapidocr": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": false,
+        "seconds": 1.281,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018365-W239148",
+      "amount": 600000.0,
+      "condition": "faded",
+      "surya": {
+        "read": "MP3018365-W239148",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 17.439,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018365-W239148",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.792,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042352-W267388",
+      "amount": 500000.0,
+      "condition": "dim",
+      "surya": {
+        "read": "MP3042352-W267388",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.835,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042352-W267388",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.538,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042494-W177623",
+      "amount": 270000.0,
+      "condition": "noise",
+      "surya": {
+        "read": "MP3042494-W177623",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.484,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042494-W177623",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.367,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019090-W109714",
+      "amount": 568523.0,
+      "condition": "jpeg",
+      "surya": {
+        "read": "MP3015890-W109714",
+        "exact": false,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 19.319,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019090-W109714",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.769,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3043716-W272391",
+      "amount": 2000000.0,
+      "condition": "distant",
+      "surya": {
+        "read": "MP3043716-W272391",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 31.445,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3043716-W272391",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.296,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018389-W104684",
+      "amount": 300000.0,
+      "condition": "harsh",
+      "surya": {
+        "read": "MP3018389-W104684",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.745,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018389-W104684",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.732,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018979-W116837",
+      "amount": 1197500.0,
+      "condition": "clean",
+      "surya": {
+        "read": "MP3018979-W116837",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.617,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018979-W116837",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.24,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019023-W114101",
+      "amount": 201000.0,
+      "condition": "tilt",
+      "surya": {
+        "read": "MP3019023-W114101",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.229,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019023-W114101",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.146,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3025895-W132697",
+      "amount": 570000.0,
+      "condition": "perspective",
+      "surya": {
+        "read": "MP3025895-W132697",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 21.359,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3025895-W132697",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.955,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017457-W26084",
+      "amount": 849529.0,
+      "condition": "blur",
+      "surya": {
+        "read": "MP3017457-W26084",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 19.702,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017457-W26084",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.475,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042343-W251497",
+      "amount": 499685.0,
+      "condition": "motion",
+      "surya": {
+        "read": "MP3042343-W251497",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 21.75,
+        "error": null
+      },
+      "rapidocr": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": false,
+        "seconds": 1.478,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3043393-W157563",
+      "amount": 220000.0,
+      "condition": "faded",
+      "surya": {
+        "read": "MP3043393-W157563",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 23.952,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3043393-W157563",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.521,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018418-W58477",
+      "amount": 1085000.0,
+      "condition": "dim",
+      "surya": {
+        "read": "MP3018418-W58477",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.714,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018418-W58477",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.747,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019005-W213396",
+      "amount": 600000.0,
+      "condition": "noise",
+      "surya": {
+        "read": "MP3019005-W213396",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.631,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019005-W213396",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.464,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042796-W219474",
+      "amount": 300000.0,
+      "condition": "jpeg",
+      "surya": {
+        "read": "MP3042796-W219474",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.937,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042796-W219474",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.779,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017221-W116801",
+      "amount": 150000.0,
+      "condition": "distant",
+      "surya": {
+        "read": "MP3017221-W116801",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 25.45,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017221-W116801",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.775,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3043222-W233628",
+      "amount": 350000.0,
+      "condition": "harsh",
+      "surya": {
+        "read": "MP3043222-W233628",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 18.472,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3043222-W233628",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 2.222,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042568-W271515",
+      "amount": 500000.0,
+      "condition": "clean",
+      "surya": {
+        "read": "MP3042568-W271515",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.073,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042568-W271515",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.217,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042437-W239750",
+      "amount": 300000.0,
+      "condition": "tilt",
+      "surya": {
+        "read": "MP3042437-W239750",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 18.104,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042437-W239750",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.712,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3018414-W262172",
+      "amount": 500000.0,
+      "condition": "perspective",
+      "surya": {
+        "read": "MP3018414-W262172",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 27.316,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3018414-W262172",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.249,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019229-W104322",
+      "amount": 400000.0,
+      "condition": "blur",
+      "surya": {
+        "read": "MP3019229-W104322",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 19.787,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019229-W104322",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.886,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042318-W261016",
+      "amount": 1000000.0,
+      "condition": "motion",
+      "surya": {
+        "read": "MP3042318-W261016",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 25.155,
+        "error": null
+      },
+      "rapidocr": {
+        "read": null,
+        "exact": false,
+        "found": false,
+        "amount_ok": true,
+        "seconds": 1.674,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017420-W248929",
+      "amount": 200000.0,
+      "condition": "faded",
+      "surya": {
+        "read": "MP3017420-W248929",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.512,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017420-W248929",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.663,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019058-W208548",
+      "amount": 364247.0,
+      "condition": "dim",
+      "surya": {
+        "read": "MP3019058-W208548",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.025,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019058-W208548",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 1.59,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3042390-W163599",
+      "amount": 1000000.0,
+      "condition": "noise",
+      "surya": {
+        "read": "MP3042390-W163599",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.961,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3042390-W163599",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.025,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019038-W117719",
+      "amount": 50000.0,
+      "condition": "jpeg",
+      "surya": {
+        "read": "MP3019038-W117719",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 14.953,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019038-W117719",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.309,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3019039-W177390",
+      "amount": 300000.0,
+      "condition": "distant",
+      "surya": {
+        "read": "MP3019039-W177390",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 28.365,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3019039-W177390",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 2.444,
+        "error": null
+      }
+    },
+    {
+      "work_ref": "MP3017247-W145352",
+      "amount": 482509.0,
+      "condition": "harsh",
+      "surya": {
+        "read": "MP3017247-W145352",
+        "exact": true,
+        "found": true,
+        "amount_ok": true,
+        "seconds": 20.512,
+        "error": null
+      },
+      "rapidocr": {
+        "read": "MP3017247-W145352",
+        "exact": true,
+        "found": true,
+        "amount_ok": false,
+        "seconds": 1.473,
+        "error": null
+      }
+    }
+  ],
+  "engines": [
+    "surya",
+    "rapidocr"
+  ],
+  "skipped": [],
+  "boards": 44,
+  "seed": 42
+}

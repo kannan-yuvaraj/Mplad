@@ -1,0 +1,64 @@
+{
+  "synthetic": true,
+  "note": "SYNTHETIC MPLADS-like data for prototype validation only. Not real scheme data.",
+  "seed": 3,
+  "n_works": 406,
+  "thresholds": [
+    500000,
+    1000000,
+    2500000
+  ],
+  "categories": {
+    "Drinking water - borewell": [
+      200000,
+      800000
+    ],
+    "CC road / paver block": [
+      500000,
+      2500000
+    ],
+    "Community hall": [
+      1000000,
+      4000000
+    ],
+    "Solar street lights": [
+      150000,
+      900000
+    ],
+    "School classroom block": [
+      800000,
+      3500000
+    ],
+    "Culvert / drainage": [
+      300000,
+      1500000
+    ],
+    "e-Library": [
+      500000,
+      2000000
+    ],
+    "Public toilet block": [
+      200000,
+      1000000
+    ]
+  },
+  "normative_order": [
+    "RECOMMEND",
+    "SANCTION",
+    "EXECUTION_START",
+    "PROGRESS_UPDATE",
+    "PAYMENT",
+    "COMPLETION",
+    "EVIDENCE_UPLOAD"
+  ],
+  "anomaly_tags": [
+    "THRESHOLD_BUNCHING",
+    "LIFECYCLE_VIOLATION",
+    "COST_ANOMALY",
+    "DUPLICATE_WORK",
+    "EVIDENCE_REUSE",
+    "AGENCY_CONCENTRATION",
+    "PAYMENT_ANOMALY",
+    "MULTI_SIGNAL"
+  ]
+}

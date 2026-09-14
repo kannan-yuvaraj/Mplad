@@ -4,8 +4,23 @@ data/raw/
 
 # Our own generated outputs
 data/interim/
-data/artifacts/
 docs/data_profile.txt
+
+# Pipeline artifacts ARE committed: the site serves them, and a host that builds from this
+# repo has no way to produce them (training needs the raw Dataset and ninety seconds of
+# work). What stays out is of three kinds, and the split is the same one `.dockerignore`
+# makes for the image:
+#   * derived      — the case store rebuilds itself from case_files.json in two seconds;
+#   * runtime      — the audit log and the field records belong to the machine that wrote
+#                    them, and a committed copy would fork a hash chain that exists to be
+#                    unforkable;
+#   * not ours     — photographs and documents submitted by officers are evidence, and
+#                    publishing them is not a decision a .gitignore should make quietly.
+data/artifacts/*.sqlite
+data/artifacts/field_photos/
+data/artifacts/field_documents/
+data/artifacts/ocr_benchmark/
+data/artifacts/_tmp_*
 
 # Python
 .venv/

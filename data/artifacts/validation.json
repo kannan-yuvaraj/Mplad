@@ -1,0 +1,94 @@
+{
+  "overall": {
+    "planted_total": 904,
+    "detected_rate": 0.6925,
+    "by_audit_roi": {
+      "recall@100": 0.0144,
+      "recall@500": 0.0564,
+      "recall@1000": 0.0885,
+      "recall@5000": 0.1482
+    },
+    "by_priority": {
+      "recall@100": 0.0,
+      "recall@500": 0.0088,
+      "recall@1000": 0.0122,
+      "recall@5000": 0.2909
+    },
+    "precision@k_by_priority": {
+      "precision@100": 0.0,
+      "precision@500": 0.016,
+      "precision@1000": 0.011,
+      "precision@5000": 0.0526
+    }
+  },
+  "per_perturbation": {
+    "inflated_amount": {
+      "planted": 250,
+      "detected_rate": 0.832,
+      "by_audit_roi": {
+        "recall@100": 0.052,
+        "recall@500": 0.204,
+        "recall@1000": 0.32,
+        "recall@5000": 0.46
+      },
+      "by_priority": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.268
+      }
+    },
+    "stalled_lifecycle": {
+      "planted": 154,
+      "detected_rate": 0.961,
+      "by_audit_roi": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.0649
+      },
+      "by_priority": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.4675
+      }
+    },
+    "cloned_description": {
+      "planted": 250,
+      "detected_rate": 0.5,
+      "by_audit_roi": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.036
+      },
+      "by_priority": {
+        "recall@100": 0.0,
+        "recall@500": 0.032,
+        "recall@1000": 0.044,
+        "recall@5000": 0.12
+      }
+    },
+    "lifecycle_break": {
+      "planted": 250,
+      "detected_rate": 0.58,
+      "by_audit_roi": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.0
+      },
+      "by_priority": {
+        "recall@100": 0.0,
+        "recall@500": 0.0,
+        "recall@1000": 0.0,
+        "recall@5000": 0.376
+      }
+    }
+  },
+  "interpretation": "`detected_rate` is the share of planted anomalies the corroboration rule surfaced at all \u2014 the measure of whether the technique works. `recall@k` is the share reaching the top k of the queue. Audit-ROI multiplies by rupee exposure by design, so a small planted work correctly ranks below a larger real one; recall by priority is therefore the fairer ranking measure.",
+  "not_a_fraud_rate": "This is NOT a real-world fraud detection rate. No fraud labels exist in any public MPLADS source. A real irregularity need not produce any of these patterns, and the vast majority of works that do produce them are legitimate.",
+  "n_per_type": 250,
+  "baseline_works": 210993
+}
