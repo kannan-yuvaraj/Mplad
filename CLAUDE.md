@@ -33,7 +33,7 @@ hands the case to Salesforce for the human casework that follows.
 
 **SIH 2026 · PS 26102 (MoSPI) · Team Morior Invictus.**
 
-**Status: feature-complete and demoable.** 245 tests passing, 2 skipped.
+**Status: feature-complete and demoable.** 341 tests passing, 1 skipped.
 
 ---
 
@@ -78,7 +78,7 @@ Product constraints, not style preferences. They must survive into code and UI c
 | Agencies changed | 73 of 697 |
 | Health Index | 62.9 / 100 |
 | Synthetic validation | **69.2%** overall (stalled 96.1%, inflated 83.2%, break 58.0%, cloned 50.0%) |
-| **Tests** | **300 passing**, 1 skipped (Surya real test is opt-in: `MPLADS_TEST_SURYA=1`) |
+| **Tests** | **341 passing**, 1 skipped (Surya real test is opt-in: `MPLADS_TEST_SURYA=1`) |
 | **API routes** | **47** (+ `/api/ocr/document`, `/api/document/{name}`, `/api/ocr/status`) |
 | **Chat tools** | **15** read-only |
 | **Languages** | **10** (UI + Agentforce, all 100%) |
@@ -170,7 +170,7 @@ scripts/              profile_data · make_demo_data · export_for_salesforce ·
 
 ```bash
 # from "MPLADS - Copy". In the user's CMD, use plain `python`.
-.venv/Scripts/python.exe -m pytest                      # 245 tests, ~85s
+.venv/Scripts/python.exe -m pytest                      # 341 tests, ~85s
 .venv/Scripts/python.exe -m mplads.cli ingest           # raw -> data/interim (~40s)
 .venv/Scripts/python.exe -m mplads.cli train            # 3 models (~90s)
 .venv/Scripts/python.exe -m mplads.cli pipeline         # artifacts (~50s)

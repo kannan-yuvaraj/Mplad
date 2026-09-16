@@ -63,6 +63,13 @@ def _wilson(successes: int, trials: int, z: float = 1.96) -> tuple[float, float]
             min(1.0, (centre + spread) / denominator))
 
 
+#: Public alias. The map compares each state's rate against the national one and
+#: must use the same interval this screen does — a second implementation would
+#: eventually disagree with this one, and then two screens would be making
+#: different claims from the same counts.
+wilson = _wilson
+
+
 def build(verifications: list[dict[str, Any]],
           bands: dict[str, str],
           confirms_concern: set[str],

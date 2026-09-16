@@ -83,6 +83,24 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
+# The live eSAKSHI feed. Additive: everything it adds sits under /api/live, and
+# it reports "unavailable" rather than failing when the feed has never run — so
+# a deployment without it degrades to the scored snapshot instead of not booting.
+try:
+    from mplads.api.live import router as _live_router
+
+    app.include_router(_live_router)
+except Exception as _live_exc:  # an optional feed must never stop the API
+    LOGGER.warning("live feed routes not mounted: %s", _live_exc)
+
+# The eSAKSHI-style intake demo. Also additive, also mounted defensively.
+try:
+    from mplads.api.submit import router as _submit_router
+
+    app.include_router(_submit_router)
+except Exception as _submit_exc:
+    LOGGER.warning("submission routes not mounted: %s", _submit_exc)
+
 #: role -> which column narrows the data, and what the role is called.
 ROLES: dict[str, dict] = {
     "ministry": {"label": "Ministry (MoSPI)", "scope_field": None,
@@ -480,6 +498,292 @@ def demo_tokens() -> dict:
 @app.get("/api/states")
 def states() -> list[dict]:
     return store().stats.get("by_state", [])
+
+
+#: A state needs this many works before its rate is allowed to colour the map.
+#: Measured reason: Lakshadweep has 72 works, 17 of them HIGH — a 23.61% rate,
+#: eleven times the national 2.13%, and it took the darkest tile on the map.
+#: Seventeen works is not a finding about a union territory, it is a small
+#: denominator. At 500 the darkest tile becomes Delhi at 6.20% on 1,161 works,
+#: which is a figure someone can actually be asked about. Same discipline as
+#: `dossier.MIN_WORKS_FOR_A_RATE` and `calibration.MIN_VISITS_FOR_A_RATE`.
+MIN_WORKS_FOR_A_MAP_RATE = 500
+
+#: The same discipline one level down. A constituency is a much smaller unit than
+#: a state — 545 of them share 210,993 works — so the floor is lower, but it is
+#: still a floor: a constituency with nine works cannot have a rate compared
+#: against one with nine hundred.
+MIN_WORKS_FOR_A_CONSTITUENCY_RATE = 50
+
+
+@lru_cache(maxsize=1)
+def _map_states() -> dict:
+    """Per-state figures for the map, computed once from the cached corpus.
+
+    Rates as well as counts, and the rate is the point. Uttar Pradesh surfaces
+    more leads than Sikkim because it has 36,047 works and Sikkim has a few
+    hundred — colouring a map by raw count would draw a picture of where the
+    works are, not where the problems are, and every large state would look
+    guilty of being large.
+
+    But a rate needs a denominator, so states under `MIN_WORKS_FOR_A_MAP_RATE`
+    are reported with their counts and **no rate**. The map leaves them
+    uncoloured rather than shading them faintly — a pale tile reads as a low
+    rate, which is a different claim from "we will not say".
+    """
+    frame = store().corpus
+    grouped = frame.groupby("state_name", observed=True)
+
+    rows = []
+    for name, part in grouped:
+        works = int(len(part))
+        bands = part["band"].value_counts()
+        high = int(bands.get("HIGH", 0))
+        medium = int(bands.get("MEDIUM", 0))
+        leads = high + medium
+        exposure = float(part["rs_exposure"].sum())
+        rateable = works >= MIN_WORKS_FOR_A_MAP_RATE
+        rows.append({
+            "state_name": str(name),
+            "works": works,
+            "high": high,
+            "medium": medium,
+            "leads": leads,
+            # Counts are always honest. Rates are withheld under the floor —
+            # None, not zero, so a consumer cannot average it into a total.
+            "lead_rate": round(leads / works, 4) if rateable else None,
+            "high_rate": round(high / works, 4) if rateable else None,
+            "rate_withheld": not rateable,
+            "withheld_reason": (
+                None if rateable else
+                f"{works} works — under {MIN_WORKS_FOR_A_MAP_RATE} a rate moves too "
+                f"far on one work to compare against other states"
+            ),
+            "exposure": round(exposure, 0),
+            "exposure_per_work": round(exposure / works, 0) if works else 0.0,
+            "agencies": int(part["implementing_agency"].nunique()),
+        })
+
+    rows.sort(key=lambda r: r["works"], reverse=True)
+    national_works = sum(r["works"] for r in rows)
+    national_leads = sum(r["leads"] for r in rows)
+    national_high = sum(r["high"] for r in rows)
+
+    return {
+        "states": rows,
+        "national": {
+            "works": national_works,
+            "leads": national_leads,
+            "high": national_high,
+            "lead_rate": round(national_leads / national_works, 4) if national_works else 0.0,
+            "high_rate": round(national_high / national_works, 4) if national_works else 0.0,
+            "exposure": round(sum(r["exposure"] for r in rows), 0),
+        },
+        "min_works_for_a_rate": MIN_WORKS_FOR_A_MAP_RATE,
+        "states_without_a_rate": sum(1 for r in rows if r["rate_withheld"]),
+        "note": ("Rates are the comparable figure. A state with more works surfaces more "
+                 "leads; that is arithmetic, not a finding. Every state is shown against "
+                 "the national rate."),
+        "floor_note": (
+            f"A state needs {MIN_WORKS_FOR_A_MAP_RATE} works before its rate colours the "
+            "map. Lakshadweep has 72 works and 17 most-urgent ones — a 23.6% rate, eleven "
+            "times the national figure, built on seventeen works. That is a small "
+            "denominator, not a finding about a union territory, so its tile is left "
+            "uncoloured and its counts are shown instead."
+        ),
+        "geography_note": ("MPLADS publishes no district column and no geo-tag for a work. "
+                           "State and constituency are the only locations in the record, so "
+                           "state is as fine as this map can honestly go — we do not place "
+                           "works at coordinates the source does not give."),
+    }
+
+
+@app.get("/api/map/states")
+def map_states(principal: Principal = Depends(current_principal)) -> dict:
+    """State-level figures for the map. Rates beside counts, national beside both."""
+    return _map_states()
+
+
+@lru_cache(maxsize=1)
+def _map_significance() -> dict:
+    """Which states are *statistically* above the national rate, not just above it.
+
+    A state 0.2 points above the national rate on 600 works has said nothing; the
+    same gap on 36,000 works is a real difference. Colour alone cannot carry
+    that, and a reader will always take the darkest tile as the worst state.
+
+    So each state's rate gets a Wilson interval — the same one the field
+    scoreboard uses — and a state is marked only when that interval sits clear
+    of the national rate. Everything else is reported as "cannot be separated
+    from the national rate", which is the honest description of most of India.
+    """
+    from mplads.intelligence.calibration import wilson
+
+    base = _map_states()
+    national = base["national"]["high_rate"]
+
+    marks: dict[str, dict] = {}
+    above = below = inconclusive = 0
+    for row in base["states"]:
+        if row["rate_withheld"]:
+            marks[row["state_name"]] = {
+                "verdict": "no_rate",
+                "note": row["withheld_reason"],
+            }
+            continue
+        low, high = wilson(row["high"], row["works"])
+        if low > national:
+            verdict = "above"
+            above += 1
+        elif high < national:
+            verdict = "below"
+            below += 1
+        else:
+            verdict = "inconclusive"
+            inconclusive += 1
+        marks[row["state_name"]] = {
+            "verdict": verdict,
+            "rate": row["high_rate"],
+            "ci_low": round(low, 4),
+            "ci_high": round(high, 4),
+            "national": national,
+            "note": {
+                "above": "Its whole confidence interval sits above the national rate.",
+                "below": "Its whole confidence interval sits below the national rate.",
+                "inconclusive": "Its interval overlaps the national rate — on these "
+                                "counts the difference cannot be told from chance.",
+            }[verdict],
+        }
+
+    return {
+        "national_high_rate": national,
+        "states": marks,
+        "counts": {"above": above, "below": below, "inconclusive": inconclusive,
+                   "no_rate": sum(1 for m in marks.values() if m["verdict"] == "no_rate")},
+        "method": "Wilson score interval at 95%, the same one /scoreboard uses.",
+        "note": ("Marked states are the ones whose difference from the national rate "
+                 "survives their own sample size. A state left unmarked is not clean — "
+                 "it is a state where these counts cannot separate it from the average."),
+    }
+
+
+@app.get("/api/map/significance")
+def map_significance(principal: Principal = Depends(current_principal)) -> dict:
+    """Which states differ from the national rate by more than their sample allows."""
+    return _map_significance()
+
+
+@lru_cache(maxsize=1)
+def _map_timeline() -> dict:
+    """Works recommended per state per year — the map as it filled up.
+
+    Recommendation date is the only date on every work, so the series is "when a
+    work entered the scheme", never "when it was built". A viewer watching the
+    years tick past is watching recommendations arrive, and the label says so.
+    """
+    frame = store().corpus
+    dated = frame[frame["recommendation_date"].notna()]
+    years = sorted({int(y) for y in dated["recommendation_date"].dt.year.unique()})
+
+    series: dict[str, dict[str, dict]] = {}
+    for year in years:
+        part = dated[dated["recommendation_date"].dt.year == year]
+        per_state = {}
+        for name, chunk in part.groupby("state_name", observed=True):
+            works = int(len(chunk))
+            high = int((chunk["band"] == "HIGH").sum())
+            per_state[str(name)] = {
+                "works": works,
+                "high": high,
+                "exposure": round(float(chunk["rs_exposure"].sum()), 0),
+            }
+        series[str(year)] = per_state
+
+    return {
+        "years": years,
+        "by_year": series,
+        "totals": {str(y): int(sum(v["works"] for v in series[str(y)].values()))
+                   for y in years},
+        "measure": "works recommended in that year",
+        "note": ("Recommendation date is the only date every work carries. This is when "
+                 "works entered the scheme, not when anything was built — MPLADS "
+                 "publishes no construction progress."),
+        "caveat_2026": ("2026 is a part year: the record ends at the snapshot date, so its "
+                        "bar is short because the year is short, not because activity fell."),
+    }
+
+
+@app.get("/api/map/timeline")
+def map_timeline(principal: Principal = Depends(current_principal)) -> dict:
+    """Works recommended per state per year, for the time-lapse."""
+    return _map_timeline()
+
+
+@lru_cache(maxsize=64)
+def _map_constituencies(state: str) -> dict:
+    """Drill one state down to its constituencies.
+
+    The finest geography MPLADS publishes. There is no district column and no
+    geo-tag, so this is where the map stops — and the constituency has no shape
+    in our boundary file either, which is why it is drawn as a ranked list
+    rather than as a second choropleth pretending to have borders it lacks.
+    """
+    frame = store().corpus
+    part = frame[frame["state_name"] == state]
+    if part.empty:
+        return {"state": state, "found": False,
+                "reason": "no works for that state in this extract"}
+
+    rows = []
+    for name, chunk in part.groupby("constituency", observed=True):
+        works = int(len(chunk))
+        bands = chunk["band"].value_counts()
+        high = int(bands.get("HIGH", 0))
+        leads = high + int(bands.get("MEDIUM", 0))
+        rateable = works >= MIN_WORKS_FOR_A_CONSTITUENCY_RATE
+        rows.append({
+            "constituency": str(name),
+            "works": works,
+            "high": high,
+            "leads": leads,
+            "high_rate": round(high / works, 4) if rateable else None,
+            "lead_rate": round(leads / works, 4) if rateable else None,
+            "rate_withheld": not rateable,
+            "exposure": round(float(chunk["rs_exposure"].sum()), 0),
+            "mp_name": (str(chunk["mp_name"].iloc[0])
+                        if chunk["mp_name"].notna().any() else None),
+            "agencies": int(chunk["implementing_agency"].nunique()),
+        })
+
+    rows.sort(key=lambda r: (r["high_rate"] is None, -(r["high_rate"] or 0), -r["works"]))
+    works_total = int(len(part))
+    high_total = int((part["band"] == "HIGH").sum())
+
+    return {
+        "state": state,
+        "found": True,
+        "constituencies": rows,
+        "state_totals": {
+            "works": works_total,
+            "high": high_total,
+            "high_rate": round(high_total / works_total, 4) if works_total else None,
+            "constituencies": len(rows),
+        },
+        "min_works_for_a_rate": MIN_WORKS_FOR_A_CONSTITUENCY_RATE,
+        "note": ("Constituency is the finest location MPLADS publishes — there is no "
+                 "district column and no geo-tag on a work. Shown as a ranked list "
+                 "rather than a second map, because our boundary file has no "
+                 "constituency borders and drawing invented ones would be worse than "
+                 "drawing none."),
+    }
+
+
+@app.get("/api/map/constituencies")
+def map_constituencies(state: str = Query(..., min_length=2, max_length=80),
+                       principal: Principal = Depends(current_principal)) -> dict:
+    """One state's constituencies, ranked. The drill-down under the map."""
+    auth.require_scope(principal, {"state": state}, f"constituencies of {state}")
+    return _map_constituencies(state)
 
 
 @app.get("/api/models")
@@ -1483,6 +1787,177 @@ def salesforce_ageing(as_of: str = Query("")) -> dict:
 
 
 # --------------------------------------------------------------- static frontend
+# ---------------------------------------------------------------- citizen view
+
+@lru_cache(maxsize=1)
+def _public_index() -> dict:
+    """The constituency picker for the public page.
+
+    Counts only — no bands, no risk, no lead. A citizen page that published a
+    risk band against a named MP would be a different product with different
+    consequences, and this system does not make that claim in public.
+    """
+    frame = store().corpus
+    rows = []
+    for (state, constituency), part in frame.groupby(
+            ["state_name", "constituency"], observed=True):
+        rows.append({
+            "state": str(state),
+            "constituency": str(constituency),
+            "works": int(len(part)),
+            "recommended": round(float(part["recommended_amount"].sum()), 0),
+            "completed": int(part["is_completed"].sum()),
+        })
+    rows.sort(key=lambda r: (r["state"], r["constituency"]))
+    return {
+        "constituencies": rows,
+        "states": sorted({r["state"] for r in rows}),
+        "total_works": sum(r["works"] for r in rows),
+        "note": ("Public view. It shows what was recommended and what is recorded as "
+                 "finished. It does not show risk bands or investigation leads — those "
+                 "are working notes for officials, not published judgements about a "
+                 "named Member of Parliament."),
+    }
+
+
+@app.get("/api/public/constituencies")
+def public_constituencies() -> dict:
+    """Every constituency with its work count. Open, no login."""
+    return _public_index()
+
+
+@lru_cache(maxsize=128)
+def _public_constituency(name: str) -> dict:
+    frame = store().corpus
+    part = frame[frame["constituency"] == name]
+    if part.empty:
+        return {"found": False, "constituency": name,
+                "reason": "no works recorded for that constituency in this extract"}
+
+    works = []
+    for _, r in part.sort_values("recommendation_date", ascending=False).head(400).iterrows():
+        works.append({
+            "work_ref": str(r["work_ref"]),
+            "description": (str(r["work_description"])[:220]
+                            if pd.notna(r["work_description"]) else None),
+            "category": (str(r["activity_category"])
+                         if pd.notna(r.get("activity_category")) else None),
+            "agency": str(r["implementing_agency"]) if pd.notna(r["implementing_agency"]) else None,
+            "recommended_amount": (None if pd.isna(r["recommended_amount"])
+                                   else float(r["recommended_amount"])),
+            "recommended_on": (None if pd.isna(r["recommendation_date"])
+                               else r["recommendation_date"].date().isoformat()),
+            "status": "Finished" if r["is_completed"] else "Not finished yet",
+        })
+
+    return {
+        "found": True,
+        "constituency": name,
+        "state": str(part["state_name"].iloc[0]),
+        "mp_name": (str(part["mp_name"].iloc[0]) if part["mp_name"].notna().any() else None),
+        "totals": {
+            "works": int(len(part)),
+            "completed": int(part["is_completed"].sum()),
+            "open": int((~part["is_completed"].astype(bool)).sum()),
+            "recommended": round(float(part["recommended_amount"].sum()), 0),
+            "agencies": int(part["implementing_agency"].nunique()),
+        },
+        "works": works,
+        "showing": len(works),
+        "note": ("What was recommended and what the record says was finished. "
+                 "'Not finished yet' is the state of the record, not a judgement "
+                 "about the work — MPLADS publishes no construction progress."),
+    }
+
+
+@app.get("/api/public/constituency")
+def public_constituency(name: str = Query(..., min_length=2, max_length=90)) -> dict:
+    """One constituency's works, for the public. No bands, no leads."""
+    return _public_constituency(name)
+
+
+# -------------------------------------------------------------- evidence ledger
+
+#: What a record has actually been through, derived from fields that exist —
+#: never a workflow state someone typed. Each step is a fact about the record.
+EVIDENCE_STEPS = (
+    ("submitted", "Submitted", "An officer filed this record."),
+    ("attributed", "Attributed", "It carries a named person, not 'anonymous'."),
+    ("camera_read", "Camera read", "A photograph or document was read by machine."),
+    ("readers_agreed", "Two readers agreed",
+     "Two independent readers returned the same reference."),
+    ("chained", "Hash-chained", "Its row hash is in the append-only chain."),
+)
+
+
+@app.get("/api/evidence/ledger")
+def evidence_ledger(limit: int = Query(200, ge=1, le=1000),
+                    include_demo: bool = Query(True)) -> dict:
+    """Every field record as an evidence trail, with what each has been through.
+
+    The states are **derived, not declared**. A workflow where someone clicks
+    "certified" records that a button was pressed; these five steps each name a
+    fact already in the record — who filed it, whether a camera read it, whether
+    two readers agreed, whether its hash is in the chain. Nothing here can be set
+    by hand, which is the whole point of putting it beside a hash chain.
+    """
+    records = field.recent(limit)
+    if not include_demo:
+        records = [r for r in records if not r.get("demo")]
+
+    rows = []
+    tally = {key: 0 for key, _, _ in EVIDENCE_STEPS}
+    for r in records:
+        steps = {
+            "submitted": True,
+            "attributed": bool(r.get("actor")) and r.get("actor") != "anonymous",
+            "camera_read": bool(r.get("photo") or r.get("document") or r.get("ocr_text")),
+            "readers_agreed": r.get("readers_agree") is True,
+            "chained": bool(r.get("row_hash")),
+        }
+        for key, on in steps.items():
+            if on:
+                tally[key] += 1
+        rows.append({
+            "id": r.get("id"),
+            "work_ref": r.get("work_ref"),
+            "outcome": r.get("outcome"),
+            "actor": r.get("actor"),
+            "role": r.get("role"),
+            "recorded_at": r.get("created_at"),
+            "notes": (r.get("notes") or "")[:200] or None,
+            "photo": r.get("photo"),
+            "document": r.get("document"),
+            "board_ref": r.get("board_ref"),
+            "board_amount": r.get("board_amount"),
+            "needed_confirmation": r.get("needed_confirmation"),
+            "photo_reuse_count": r.get("photo_reuse_count"),
+            "ocr_engine": r.get("ocr_engine"),
+            "row_hash": (r.get("row_hash") or "")[:16] or None,
+            "demo": bool(r.get("demo")),
+            "steps": steps,
+            "reached": sum(1 for v in steps.values() if v),
+        })
+
+    # `audit` here is the cached accessor defined above, not the module — it
+    # returns the AuditLog, so it has to be called.
+    chain = audit().verify_chain()
+    return {
+        "records": rows,
+        "count": len(rows),
+        "steps": [{"key": k, "label": l, "meaning": m} for k, l, m in EVIDENCE_STEPS],
+        "tally": tally,
+        "chain": chain,
+        "readiness": field.label_readiness(),
+        "note": ("Every step is derived from what the record already contains. None of "
+                 "them can be set by hand — a state somebody types is a record that a "
+                 "button was pressed, not evidence."),
+        "immutability": ("Records are append-only: SQLite triggers refuse UPDATE and "
+                         "DELETE, and a correction is a new record. The chain result "
+                         "above is reported as valid or not, never as 'intact'."),
+    }
+
+
 #
 # When the built React app is present, this one service serves both it and the API.
 # Same origin means no CORS to configure, no second host to keep in sync, and no

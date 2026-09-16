@@ -57,6 +57,25 @@ export const api = {
     return get(`/api/stats?${q}`);
   },
   states: () => get("/api/states"),
+  /** Per-state figures for the tile map — rates beside counts. */
+  mapStates: () => get("/api/map/states"),
+  /** Public, no-login view: every constituency with its work count. */
+  publicConstituencies: () => get("/api/public/constituencies"),
+  publicConstituency: (name) =>
+    get(`/api/public/constituency?name=${encodeURIComponent(name)}`),
+  /** Field records with the steps each has been through, and the chain result. */
+  evidenceLedger: (limit = 200) => get(`/api/evidence/ledger?limit=${limit}`),
+  /** Which states differ from the national rate by more than their sample allows. */
+  mapSignificance: () => get("/api/map/significance"),
+  /** Works recommended per state per year, for the time-lapse. */
+  mapTimeline: () => get("/api/map/timeline"),
+  /** One state broken down to its constituencies. */
+  mapConstituencies: (state) =>
+    get(`/api/map/constituencies?state=${encodeURIComponent(state)}`),
+  /** Vendor concentration per district authority, from the live feed. */
+  vendors: (limit = 40) => get(`/api/live/vendors?limit=${limit}`),
+  vendorsFor: (authority) =>
+    get(`/api/live/vendors/${encodeURIComponent(authority)}`),
   models: () => get("/api/models"),
   /** Liveness and engine version — polled by the status indicator in the masthead. */
   health: () => get("/api/health"),

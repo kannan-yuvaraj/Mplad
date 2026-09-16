@@ -64,6 +64,29 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("report", help="completeness report")
     sub.add_parser("dataset", help="package everything collected as a distributable dataset")
 
+    p_sync = sub.add_parser("live-sync", help="one live sync cycle against the portal")
+    p_sync.add_argument("--full", action="store_true",
+                        help="refresh every scope, ignoring the change fingerprint")
+    p_sync.add_argument("--limit-scopes", type=int, default=None)
+
+    p_run = sub.add_parser("live-run", help="run the live sync service continuously")
+    p_run.add_argument("--interval", type=float, default=None,
+                       help="seconds between incremental cycles (default 900)")
+    p_run.add_argument("--full-every", type=float, default=None,
+                       help="seconds between full sweeps (default 86400)")
+    p_run.add_argument("--max-cycles", type=int, default=None)
+
+    sub.add_parser("live-status", help="freshness and change-feed summary")
+
+    p_ev = sub.add_parser("evidence-index",
+                          help="fingerprint attachments and discard the bytes")
+    p_ev.add_argument("--limit-works", type=int, default=None)
+    p_ev.add_argument("--pin-documents", action="store_true",
+                      help="keep PDFs on disk; photographs are still discarded")
+
+    sub.add_parser("evidence-coverage", help="how much evidence has been fingerprinted")
+    sub.add_parser("evidence-reuse", help="the same picture under two different works")
+
     args = parser.parse_args(argv)
     _setup_logging(args.verbose)
 
@@ -122,6 +145,53 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "dataset":
         from ingestion.dataset.build import run_build_dataset
         print(json.dumps(run_build_dataset(), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "live-sync":
+        from ingestion.live.sync import sync_full, sync_once
+        runner = sync_full if args.full else sync_once
+        print(json.dumps(runner(limit_scopes=args.limit_scopes),
+                         ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "live-run":
+        from ingestion.live import service
+        kwargs = {}
+        if args.interval is not None:
+            kwargs["interval_seconds"] = args.interval
+        if args.full_every is not None:
+            kwargs["full_every_seconds"] = args.full_every
+        if args.max_cycles is not None:
+            kwargs["max_cycles"] = args.max_cycles
+        try:
+            print(json.dumps(service.run_service(**kwargs), ensure_ascii=False, indent=2))
+        except RuntimeError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        return 0
+
+    if args.command == "live-status":
+        from ingestion.live.service import heartbeat
+        from ingestion.live.store import LiveStore
+        print(json.dumps({"heartbeat": heartbeat(), "store": LiveStore().status()},
+                         ensure_ascii=False, indent=2, default=str))
+        return 0
+
+    if args.command == "evidence-index":
+        from ingestion.live.evidence import index_attachments
+        print(json.dumps(index_attachments(limit_works=args.limit_works,
+                                           pin_documents=args.pin_documents),
+                         ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "evidence-coverage":
+        from ingestion.live.evidence import coverage
+        print(json.dumps(coverage(), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "evidence-reuse":
+        from ingestion.live.evidence import reuse_report
+        print(json.dumps(reuse_report(), ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "report":

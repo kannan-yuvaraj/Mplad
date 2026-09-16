@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { num, rupees } from "../api.js";
-import { AnomalyFeed, DetectionFlow, DetectorBoard, useDetection } from "../components/Detection.jsx";
+import CivicShow from "../components/CivicShow.jsx";
+import { AnomalyFeed, DetectorBoard, useDetection } from "../components/Detection.jsx";
 import { DATA_SNAPSHOT } from "../components/GovChrome.jsx";
 import { IconAgency, IconCasework, IconField, IconReport } from "../components/icons.jsx";
 
@@ -20,7 +21,6 @@ import { IconAgency, IconCasework, IconField, IconReport } from "../components/i
  */
 export default function Landing() {
   const { d, at, ms, busy } = useDetection();
-  const n = d.stats?.national;
   const plan = d.plan?.totals;
 
   return (
@@ -31,43 +31,34 @@ export default function Landing() {
           <div className="dx-hero-copy">
             <span className="dx-kicker">
               <span className={"live-dot" + (busy ? " wait" : "")} aria-hidden="true" />
-              Computer checks on MP-funded works · MPLADS / eSAKSHI
+              Ministry of Statistics &amp; Programme Implementation · MPLADS
             </span>
-            <h1>Every MPLADS work, checked for anything unusual.</h1>
+
+            <h1>Public money, checked work by work.</h1>
+
             <p className="dx-lede">
-              The computer looks at all {n ? num(n.total_works) : "…"} works in five ways — does it
-              cost too much, is it taking too long, do its numbers look odd, is it listed twice, did
-              the agency suddenly change — and flags a work only when two of these agree.
+              MPs fund classrooms, water lines and roads where people live. This service
+              reads the public record of that work and points officials at the few worth a
+              closer look.
             </p>
 
-            <div className="dx-trio">
-              <div>
-                <span className="v">{n ? num(n.surfaced_leads) : "…"}</span>
-                <span className="l">works flagged</span>
-              </div>
-              <div>
-                <span className="v hot">{n ? num(n.bands?.HIGH || 0) : "…"}</span>
-                <span className="l">most urgent</span>
-              </div>
-              <div>
-                <span className="v">{n ? rupees(n.total_exposure_rupees) : "…"}</span>
-                <span className="l">money at risk</span>
-              </div>
-            </div>
+            <p className="dx-caveat">
+              It never says anyone did wrong — only where someone should go and check.
+            </p>
 
             <div className="dx-cta">
               <Link to="/overview" className="btn btn-primary">See what was found</Link>
-              <Link to="/workflow" className="btn">Follow one work, step by step</Link>
+              <Link to="/public" className="btn">Look up my area</Link>
             </div>
 
             <p className="dx-status">
-              Checked using eSAKSHI records up to {DATA_SNAPSHOT}
-              {at && !busy ? ` · worked out at ${at.toLocaleTimeString("en-IN")} in ${ms} ms` : " · working it out…"}
+              Public eSAKSHI record up to {DATA_SNAPSHOT}
+              {at && !busy ? ` · worked out here in ${ms} ms` : " · working it out…"}
             </p>
           </div>
 
-          <div className="dx-flow-card">
-            <DetectionFlow d={d} variant="dark" />
+          <div className="dx-hero-art">
+            <CivicShow />
           </div>
         </div>
       </section>

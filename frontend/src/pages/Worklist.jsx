@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, num, rupees } from "../api.js";
 import { Band, Hitl, SkeletonRows, Topbar } from "../components/Bits.jsx";
 import { useRole } from "../RoleContext.jsx";
@@ -77,16 +77,32 @@ function RowDetail({ workRef, onOpen, t }) {
 }
 
 export default function Worklist() {
+  // The filters seed from the address bar, so a link can carry them. The heat
+  // map's "See its works" arrives as `?state=Delhi`, and before this the queue
+  // opened unfiltered — the officer landed on all 37,705 leads having just asked
+  // for one state's. Keeping them in the URL also makes a filtered queue
+  // something you can send to a colleague.
+  const [search, setSearch] = useSearchParams();
   const [data, setData] = useState(null);
   const [states, setStates] = useState([]);
-  const [q, setQ] = useState("");
-  const [state, setState] = useState("");
-  const [band, setBand] = useState("");
+  const [q, setQ] = useState(() => search.get("q") || "");
+  const [state, setState] = useState(() => search.get("state") || "");
+  const [band, setBand] = useState(() => (search.get("band") || "").toUpperCase());
   const [page, setPage] = useState(0);
   const [openRef, setOpenRef] = useState(null);
   const nav = useNavigate();
   const { params, role, scope } = useRole();
   const { t } = useI18n();
+
+  // Write the filters back, replacing rather than pushing: typing in the search
+  // box should not bury the previous page under thirty history entries.
+  useEffect(() => {
+    const next = {};
+    if (q) next.q = q;
+    if (state) next.state = state;
+    if (band) next.band = band;
+    setSearch(next, { replace: true });
+  }, [q, state, band, setSearch]);
 
   useEffect(() => { api.states().then(setStates).catch(() => {}); }, []);
 

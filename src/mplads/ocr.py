@@ -554,15 +554,30 @@ def _load_image(image_path: Path):
 # ================================================================================ reading
 
 
-def read(image_path: Path, *, cross_check: bool = True) -> dict:
+def read(image_path: Path, *, cross_check: bool = True, prefer: str | None = None) -> dict:
     """Extract text and identifying fields from a photograph of a site board.
 
     Returns the raw lines, whichever fields were recognised, which engine read them, and —
     when a second engine is available — what that engine read, so the officer can see
     whether two independent readers agree. Nothing here is trusted: the caller shows it to
     the officer for confirmation.
+
+    `prefer` names an engine to try first, for callers that would rather have an
+    answer quickly than have the best one. Measured on this machine, warm:
+    Surya ~7 s, RapidOCR ~1.9 s — so an interactive screen can stay responsive
+    while the field-verification path keeps the more careful reader as its
+    default. An unknown or unavailable name is ignored rather than raising: a
+    preference is a preference, and losing the read entirely because a fast
+    engine was missing would be the worse failure.
     """
     primary = _engine()
+    if prefer:
+        preferred = ENGINES.get(prefer)
+        if preferred is not None and preferred.available():
+            primary = preferred
+        else:
+            LOGGER.info("ocr: preferred reader %r unavailable; using %s",
+                        prefer, primary.name if primary else "none")
     if primary is None:
         return {
             "available": False,

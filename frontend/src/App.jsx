@@ -7,7 +7,6 @@ import CaseFile from "./pages/CaseFile.jsx";
 import HowItWorks from "./pages/HowItWorks.jsx";
 import Trends from "./pages/Trends.jsx";
 import Duplicates from "./pages/Duplicates.jsx";
-import Compliance from "./pages/Compliance.jsx";
 import Transparency from "./pages/Transparency.jsx";
 import Archetypes from "./pages/Archetypes.jsx";
 import SalesforceHub from "./pages/SalesforceHub.jsx";
@@ -16,6 +15,11 @@ import FieldRota from "./pages/FieldRota.jsx";
 import AgencyDossier from "./pages/AgencyDossier.jsx";
 import Scoreboard from "./pages/Scoreboard.jsx";
 import Workflow from "./pages/Workflow.jsx";
+import Submit from "./pages/Submit.jsx";
+import StateMap from "./pages/StateMap.jsx";
+import PublicView from "./pages/PublicView.jsx";
+import Vendors from "./pages/Vendors.jsx";
+import EvidenceLedger from "./pages/EvidenceLedger.jsx";
 import { RoleProvider, RoleSwitcher, useRole } from "./RoleContext.jsx";
 import { useScrollProgress } from "./hooks.js";
 import { LanguageSwitcher } from "./I18nContext.jsx";
@@ -36,42 +40,6 @@ import {
   PrototypeNotice,
 } from "./components/GovChrome.jsx";
 import { useI18n } from "./I18nContext.jsx";
-
-const NAV = [
-  {
-    key: "nav.monitor", label: "Monitor",
-    items: [
-      { to: "/overview", ic: "▤", key: "nav.overview", label: "Overview" },
-      { to: "/worklist", ic: "▦", key: "nav.worklist", label: "Investigation Queue" },
-      { to: "/audit-plan", ic: "◷", key: "nav.auditPlan", label: "Audit Plan" },
-      { to: "/rota", ic: "◫", key: "nav.rota", label: "Field Rota" },
-      { to: "/agency", ic: "⌂", key: "nav.agency", label: "Agency Dossier" },
-    ],
-  },
-  {
-    key: "nav.crm", label: "Casework & CRM",
-    items: [
-      { to: "/salesforce", ic: "⚡", key: "nav.salesforce", label: "Salesforce & Agentforce" },
-    ],
-  },
-  {
-    key: "nav.intelligence", label: "Intelligence",
-    items: [
-      { to: "/trends", ic: "◪", key: "nav.trends", label: "Temporal" },
-      { to: "/duplicates", ic: "⧉", key: "nav.duplicates", label: "Near-Duplicates" },
-      { to: "/compliance", ic: "§", key: "nav.compliance", label: "Compliance" },
-      { to: "/archetypes", ic: "◈", key: "nav.archetypes", label: "Work Archetypes" },
-    ],
-  },
-  {
-    key: "nav.trust", label: "Trust",
-    items: [
-      { to: "/transparency", ic: "◉", key: "nav.transparency", label: "Data Transparency" },
-      { to: "/scoreboard", ic: "◎", key: "nav.scoreboard", label: "Field Scoreboard" },
-      { to: "/how", ic: "?", key: "nav.how", label: "How it works" },
-    ],
-  },
-];
 
 function Sidebar() {
   const link = ({ isActive }) => "nav-link" + (isActive ? " active" : "");
@@ -266,10 +234,14 @@ function Shell() {
               <Route path="/salesforce" element={<SalesforceHub />} />
               <Route path="/trends" element={<Trends />} />
               <Route path="/duplicates" element={<Duplicates />} />
-              <Route path="/compliance" element={<Compliance />} />
               <Route path="/archetypes" element={<Archetypes />} />
               <Route path="/transparency" element={<Transparency />} />
               <Route path="/workflow" element={<Workflow />} />
+              <Route path="/submit" element={<Submit />} />
+              <Route path="/map" element={<StateMap />} />
+              <Route path="/public" element={<PublicView />} />
+              <Route path="/vendors" element={<Vendors />} />
+              <Route path="/evidence" element={<EvidenceLedger />} />
               <Route path="/how" element={<HowItWorks />} />
               <Route path="/case/:ref" element={<CaseFile />} />
               <Route path="*" element={<NotFound />} />
