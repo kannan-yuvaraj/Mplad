@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Topbar } from "../components/Bits.jsx";
+import ExplainTabs from "../components/ExplainTabs.jsx";
 import { IconAlert, IconArchetype, IconCompliance, IconHelp, IconQueue, IconTrend } from "../components/icons.jsx";
 
 const STEPS = [
@@ -39,6 +40,7 @@ export default function HowItWorks() {
   return (
     <>
       <Topbar title="How this works" sub="Explained simply" />
+      <ExplainTabs />
       <div className="content">
         <div className="hitl">
           <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconHelp size={16} /></span>

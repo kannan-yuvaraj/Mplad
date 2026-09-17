@@ -3,14 +3,17 @@ import {
   IconArchetype,
   IconCasework,
   IconDashboard,
+  IconDocument,
   IconDuplicate,
   IconField,
+  IconFlag,
   IconHelp,
-  IconLayers,
   IconQueue,
   IconReport,
+  IconRupee,
+  IconSearch,
+  IconShield,
   IconTarget,
-  IconTransparency,
   IconTrend,
 } from "./components/icons.jsx";
 
@@ -42,8 +45,8 @@ export const SECTIONS = [
       { to: "/overview", Icon: IconDashboard, key: "nav.detectionCentre", label: "Detection Centre" },
       { to: "/worklist", Icon: IconQueue, key: "nav.worklist", label: "Works to Check" },
       { to: "/duplicates", Icon: IconDuplicate, key: "nav.duplicates", label: "Possible Duplicates" },
-      { to: "/vendors", Icon: IconAgency, key: "nav.vendors", label: "Who Gets Paid" },
-      { to: "/map", Icon: IconDashboard, key: "nav.map", label: "Work Heatmap" },
+      { to: "/vendors", Icon: IconRupee, key: "nav.vendors", label: "Who Gets Paid" },
+      { to: "/map", Icon: IconFlag, key: "nav.map", label: "Work Heatmap" },
       { to: "/trends", Icon: IconTrend, key: "nav.trends", label: "Changes Over Time" },
       { to: "/archetypes", Icon: IconArchetype, key: "nav.archetypes", label: "Work Types" },
     ],
@@ -66,15 +69,24 @@ export const SECTIONS = [
     key: "nav.step.assure",
     label: "Check",
     items: [
-      { to: "/workflow", Icon: IconLayers, key: "nav.workflow", label: "Step by Step" },
-      { to: "/submit", Icon: IconField, key: "nav.submit", label: "Submit Evidence" },
-      { to: "/evidence", Icon: IconLayers, key: "nav.evidence", label: "Evidence Trail" },
-      { to: "/public", Icon: IconTransparency, key: "nav.public", label: "Look Up My Area" },
+      { to: "/submit", Icon: IconDocument, key: "nav.submit", label: "Submit Evidence" },
+      { to: "/evidence", Icon: IconShield, key: "nav.evidence", label: "Evidence Trail" },
+      { to: "/public", Icon: IconSearch, key: "nav.public", label: "Look Up My Area" },
       { to: "/scoreboard", Icon: IconTarget, key: "nav.scoreboard", label: "Was It Right?" },
-      { to: "/transparency", Icon: IconTransparency, key: "nav.transparency", label: "About the Data" },
-      { to: "/how", Icon: IconHelp, key: "nav.how", label: "How it works" },
+      { to: "/how", Icon: IconHelp, key: "nav.how", label: "How it works",
+        also: ["/workflow", "/transparency"] },
     ],
   },
+];
+
+/**
+ * The three views under the single "How it works" entry, in tab order. They were
+ * three nav entries answering one question; each keeps its address.
+ */
+export const EXPLAIN_PAGES = [
+  { to: "/how", key: "nav.how", label: "How it works", tabKey: "explain.plain", tab: "In plain words" },
+  { to: "/workflow", key: "nav.workflow", label: "Step by Step", tabKey: "explain.steps", tab: "Step by step" },
+  { to: "/transparency", key: "nav.transparency", label: "About the Data", tabKey: "explain.data", tab: "About the data" },
 ];
 
 /**
@@ -95,6 +107,13 @@ export const PAGES = SECTIONS.flatMap((s) =>
 export function resolveRoute(pathname) {
   const exact = PAGES.find((p) => p.to === pathname);
   if (exact) return exact;
+
+  // A view that lives under another entry keeps its own title in the breadcrumb.
+  const owner = PAGES.find((p) => p.also?.includes(pathname));
+  if (owner) {
+    const view = EXPLAIN_PAGES.find((p) => p.to === pathname);
+    return { ...owner, to: pathname, key: view?.key || owner.key, label: view?.label || owner.label };
+  }
 
   const prefix = Object.keys(UNLISTED).find((p) => pathname.startsWith(p + "/"));
   if (prefix) {

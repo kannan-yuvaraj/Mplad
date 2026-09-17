@@ -273,10 +273,10 @@ figures — a work reference is an identifier, not a word.
 | Immutable field records | same trigger pattern — a correction is a new record | ✅ |
 | Upload safety | 12 MB cap, extension allowlist, content-addressed storage, `Path(name).name` traversal guard | ✅ |
 | Read-only chat tools | a test **greps their source** for `write_text`, `to_parquet`, `open(`, `os.remove`, `setattr` | ✅ |
-| **Rate limiting** | on the architecture diagram | ⬜ **NOT IMPLEMENTED — do not claim it** |
+| **Rate limiting** | `api/guard.py` | ✅ per-client limit on reads and login, plus a concurrency cap on photo/document reading |
 
-**Weak by design, and say so before a judge finds it:** `JWT_SECRET` defaults to
-`dev-only-not-a-production-secret` (Render generates a real one), `REQUIRE_AUTH=0`,
+**Weak by design, and say so before a judge finds it:** `JWT_SECRET` is random per process
+when unset (Render generates a persistent one), `REQUIRE_AUTH=0`,
 `CORS allow_origins=["*"]`, demo passwords in plaintext in `app.py` and listed openly at
 `/api/auth/accounts`. Demo accounts: `ministry` / `auditor` / `bihar` / `saran`, all
 `mplads2026`.

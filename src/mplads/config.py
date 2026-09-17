@@ -154,7 +154,14 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
-JWT_SECRET: str = _os.environ.get("MPLADS_JWT_SECRET", "dev-only-not-a-production-secret")
+#: Without MPLADS_JWT_SECRET the service signs with a random secret made at start-up.
+#: It used to fall back to a fixed string published in this repository, so any
+#: deployment that forgot the variable let anyone mint a ministry token. The cost of
+#: the random default is only that sign-ins do not survive a restart.
+import secrets as _secrets
+
+JWT_SECRET: str = _os.environ.get("MPLADS_JWT_SECRET") or _secrets.token_hex(32)
+JWT_SECRET_IS_EPHEMERAL: bool = not _os.environ.get("MPLADS_JWT_SECRET")
 REQUIRE_AUTH: bool = _os.environ.get("MPLADS_REQUIRE_AUTH", "0") == "1"
 
 #: Set on a host with little memory — a free container is typically 512 MB. It does not

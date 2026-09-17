@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Band, Hitl, Topbar } from "../components/Bits.jsx";
-import { API_PORT, rupees } from "../api.js";
+import { rupees } from "../api.js";
 
 /**
  * The intake portal — an eSAKSHI-shaped submission, assessed in front of you.
@@ -34,7 +34,9 @@ const SCENARIOS = [
     id: "clean",
     title: "Ordinary submission",
     blurb: "A board photograph that matches its record. Most submissions look like this, and the system should say so rather than inventing a concern.",
-    file: "01-board-matches.png",
+    // A work with band NONE. This was board 01 — the top-ranked lead in the whole
+    // portfolio — so the "ordinary" sample came back HIGH and contradicted its label.
+    file: "03-photo-first-submission.png",
     workRef: "",
     amount: "",
   },
@@ -90,10 +92,11 @@ export default function Submit() {
   }, []);
 
   function base() {
-    const { protocol, hostname, port } = window.location;
-    // In dev the page is served by Vite and /api is proxied; in the built bundle
-    // the API serves the page itself. Same-origin works for both.
-    return port && port !== String(API_PORT) ? "" : `${protocol}//${hostname}:${API_PORT}`;
+    // Always same-origin. Vite (dev and preview) proxies /api, and in the built
+    // deployment the API serves this page itself. This used to return
+    // `<host>:API_PORT` whenever the page URL had no port — which is every HTTPS
+    // deployment — so on the live site uploads went to a port nothing listens on.
+    return "";
   }
 
   async function submit(e) {
@@ -114,7 +117,10 @@ export default function Submit() {
 
     try {
       const res = await fetch(`${base()}/api/submission/assess`, { method: "POST", body });
-      if (!res.ok || !res.body) throw new Error(`The engine returned ${res.status}`);
+      if (!res.ok || !res.body) {
+        const detail = await res.json().then((d) => d?.detail).catch(() => null);
+        throw new Error(typeof detail === "string" ? detail : `The engine returned ${res.status}`);
+      }
 
       // Parse the SSE stream by hand: EventSource cannot POST a file.
       const reader = res.body.getReader();

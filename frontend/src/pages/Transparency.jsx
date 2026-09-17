@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, num } from "../api.js";
 import { Loading, Topbar } from "../components/Bits.jsx";
+import ExplainTabs from "../components/ExplainTabs.jsx";
 import { Reveal } from "../components/Reveal.jsx";
 import { scoreFill, sev } from "../severity.js";
 import { useI18n } from "../I18nContext.jsx";
@@ -99,7 +100,7 @@ export default function Transparency() {
   const { t } = useI18n();
   useEffect(() => { api.transparency().then(setD).catch(console.error); }, []);
 
-  if (!d) return (<><Topbar title={t("transparency.title", "About the Data")} /><div className="content"><Loading /></div></>);
+  if (!d) return (<><Topbar title={t("transparency.title", "About the Data")} /><ExplainTabs /><div className="content"><Loading /></div></>);
 
   const group = (type) => d.metrics.filter((m) => m.type === type);
 
@@ -108,6 +109,7 @@ export default function Transparency() {
       <Topbar title={t("transparency.title", "About the Data")}
         sub={t("transparency.sub", "What we count directly, what the computer works out, and what the public data simply does not have")}
         right={<span className="pill">{d.totals.unavailable_metrics} {t("transparency.fieldsUnavailable", "facts not available")}</span>} />
+      <ExplainTabs />
       <div className="content">
         <div className="hitl">
           <span aria-hidden="true" style={{ color: "var(--primary)", display: "inline-flex", marginTop: 1 }}><IconShield size={16} /></span>

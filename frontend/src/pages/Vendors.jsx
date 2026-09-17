@@ -87,6 +87,15 @@ export default function Vendors() {
             {data.coverage.states_covered.length === 1 ? "" : "s"} —{" "}
             {data.coverage.states_covered.join(", ")} — because that is how far the live
             feed has synced. It is not a national picture and should not be read as one.
+            {data.source === "snapshot" && (
+              <>
+                {" "}<b>This is a saved copy, not the live feed</b>
+                {data.snapshot_taken_at
+                  ? `, taken ${data.snapshot_taken_at.slice(0, 10)}` : ""}
+                {" "}— the live feed runs on the machine that syncs the portal, not on
+                this server.
+              </>
+            )}
             {" "}{num(data.coverage.authorities_below_floor)} offices had fewer than{" "}
             {data.coverage.min_payments_for_an_index} payments, so they are listed with
             their counts and <b>no index</b>.

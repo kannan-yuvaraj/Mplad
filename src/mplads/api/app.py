@@ -32,7 +32,7 @@ from mplads import casereport
 from mplads import chat as chatbot
 from mplads import field, ocr
 from mplads import config, llm
-from mplads.api import auth
+from mplads.api import auth, guard
 from mplads.api.strings import UI
 from mplads.api import translations
 from mplads.api.audit import AuditLog
@@ -996,6 +996,13 @@ def _warm_everything() -> None:
             _concerning_pairs()
     except Exception as exc:  # pragma: no cover - never block startup on a warm-up
         LOGGER.info("duplicate frame not warmed (%s)", type(exc).__name__)
+    try:
+        # The scoreboard's first read of every case band took 24 s cold against 0.8 s warm.
+        # The host sleeps after 15 idle minutes, so without this the first visitor after
+        # every wake-up would have paid it.
+        store().cases_by_ref.bands()
+    except Exception as exc:  # pragma: no cover - never block startup on a warm-up
+        LOGGER.info("case bands not warmed (%s)", type(exc).__name__)
     _release_memory()
 
 
@@ -1365,7 +1372,7 @@ class LoginRequest(BaseModel):
 
 
 @app.post("/api/auth/login")
-def login(req: LoginRequest) -> dict:
+def login(req: LoginRequest, request: Request) -> dict:
     """Issue a bearer token for a seeded account.
 
     Prototype only: accounts are seeded in code, passwords are shared and not hashed,
@@ -1373,6 +1380,7 @@ def login(req: LoginRequest) -> dict:
     identity provider; everything behind it — the token, the scope, the audit trail —
     stays exactly as it is.
     """
+    guard.rate_limit(request, "login", guard.LOGIN_ATTEMPTS_PER_WINDOW)
     account = DEMO_ACCOUNTS.get(req.username.strip().lower())
     if not account or account["password"] != req.password:
         raise HTTPException(401, "incorrect username or password")
@@ -1400,7 +1408,7 @@ def demo_accounts() -> dict:
 
 
 @app.post("/api/ocr")
-async def read_photo(file: UploadFile = File(...), work_ref: str = Form(""),
+async def read_photo(request: Request, file: UploadFile = File(...), work_ref: str = Form(""),
                      principal: Principal = Depends(current_principal)) -> dict:
     """Read a site board, identify the work, and check the photograph has not been seen before.
 
@@ -1408,15 +1416,17 @@ async def read_photo(file: UploadFile = File(...), work_ref: str = Form(""),
     to, and whether this exact picture was already submitted for a different sanction. The
     third is the one a human could not do at scale.
     """
-    data = await file.read()
-    if len(data) > 12 * 1024 * 1024:
-        raise HTTPException(400, "image is larger than 12 MB")
+    guard.rate_limit(request, "read", guard.HEAVY_REQUESTS_PER_WINDOW)
+    data = await guard.read_capped(file, 12 * 1024 * 1024, "image")
     try:
         name = field.save_photo(data, file.filename or "upload.jpg")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 
-    extracted = ocr.read(field.PHOTOS / name)
+    # Off the event loop, and one reader at a time: reading here used to stall
+    # every other request, the health check included, for the whole 2-20 s.
+    with guard.heavy_slot():
+        extracted = await guard.run_heavy(ocr.read, field.PHOTOS / name)
     extracted["photo"] = name
     # Matched against every work in the portfolio, not only the surfaced leads — an
     # officer photographing an ordinary work should be told it is ordinary, not unknown.
@@ -1429,7 +1439,7 @@ async def read_photo(file: UploadFile = File(...), work_ref: str = Form(""),
 
 
 @app.post("/api/ocr/document")
-async def read_document(file: UploadFile = File(...), work_ref: str = Form(""),
+async def read_document(request: Request, file: UploadFile = File(...), work_ref: str = Form(""),
                         principal: Principal = Depends(current_principal)) -> dict:
     """Read a sanction order, work order or completion certificate with Docling.
 
@@ -1437,15 +1447,15 @@ async def read_document(file: UploadFile = File(...), work_ref: str = Form(""),
     survive. Every work reference in it is checked against the portfolio — an order often
     covers several works — and whether the work this case file is about appears in it.
     """
-    data = await file.read()
-    if len(data) > 20 * 1024 * 1024:
-        raise HTTPException(400, "document is larger than 20 MB")
+    guard.rate_limit(request, "read", guard.HEAVY_REQUESTS_PER_WINDOW)
+    data = await guard.read_capped(file, 20 * 1024 * 1024, "document")
     try:
         name = field.save_document(data, file.filename or "document.pdf")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 
-    extracted = ocr.read_document(field.DOCUMENTS / name)
+    with guard.heavy_slot():
+        extracted = await guard.run_heavy(ocr.read_document, field.DOCUMENTS / name)
     extracted["document"] = name
     refs = extracted.get("work_refs") or []
     known = store().all_refs

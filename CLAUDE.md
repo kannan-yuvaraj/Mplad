@@ -33,7 +33,7 @@ hands the case to Salesforce for the human casework that follows.
 
 **SIH 2026 · PS 26102 (MoSPI) · Team Morior Invictus.**
 
-**Status: feature-complete and demoable.** 341 tests passing, 1 skipped.
+**Status: feature-complete and demoable.** 348 tests passing, 1 skipped.
 
 ---
 
@@ -78,7 +78,7 @@ Product constraints, not style preferences. They must survive into code and UI c
 | Agencies changed | 73 of 697 |
 | Health Index | 62.9 / 100 |
 | Synthetic validation | **69.2%** overall (stalled 96.1%, inflated 83.2%, break 58.0%, cloned 50.0%) |
-| **Tests** | **341 passing**, 1 skipped (Surya real test is opt-in: `MPLADS_TEST_SURYA=1`) |
+| **Tests** | **348 passing**, 1 skipped (Surya real test is opt-in: `MPLADS_TEST_SURYA=1`) |
 | **API routes** | **47** (+ `/api/ocr/document`, `/api/document/{name}`, `/api/ocr/status`) |
 | **Chat tools** | **15** read-only |
 | **Languages** | **10** (UI + Agentforce, all 100%) |
@@ -170,7 +170,7 @@ scripts/              profile_data · make_demo_data · export_for_salesforce ·
 
 ```bash
 # from "MPLADS - Copy". In the user's CMD, use plain `python`.
-.venv/Scripts/python.exe -m pytest                      # 341 tests, ~85s
+.venv/Scripts/python.exe -m pytest                      # 348 tests, ~85s
 .venv/Scripts/python.exe -m mplads.cli ingest           # raw -> data/interim (~40s)
 .venv/Scripts/python.exe -m mplads.cli train            # 3 models (~90s)
 .venv/Scripts/python.exe -m mplads.cli pipeline         # artifacts (~50s)
@@ -653,10 +653,18 @@ set usable. Giving them their own name is how they quietly stop being counted.
 - Chat tools **provably read-only** — a test greps their source for `write_text`,
   `to_parquet`, `open(`, `os.remove`, `setattr`.
 
-**Weak by design, say so before a judge finds it:** `JWT_SECRET` defaults to
-`"dev-only-not-a-production-secret"`; `REQUIRE_AUTH=0`; `CORS allow_origins=["*"]`; demo
-passwords plaintext in `app.py` and listed at `/api/auth/accounts`. **Rate limiting is on the
-architecture diagram and is NOT implemented — do not claim it.**
+**Load guards (`api/guard.py`)** on photo/document reading, submission assessment and login:
+reading runs off the event loop (one photo used to stall `/api/health` for 19.9 s), uploads
+stop at their cap instead of being read whole, at most 1 read at a time on `LOW_MEMORY` (2
+otherwise) with 429 + `Retry-After`, and a per-client limit (8 reads / 10 logins a minute).
+The per-client limit keys on `X-Forwarded-For` and can be forged — the slot count is the
+real guard. Without `MPLADS_JWT_SECRET` the service signs with a random per-process secret
+(it used to fall back to a string published in this repo).
+
+**Weak by design, say so before a judge finds it:** `REQUIRE_AUTH=0`; `CORS
+allow_origins=["*"]` (bearer tokens, no cookies, so no CSRF exposure); demo passwords
+plaintext in `app.py` and listed at `/api/auth/accounts`; anyone can move a case stage
+(recording a *finding* needs a name).
 
 Demo accounts: `ministry` / `auditor` / `bihar` / `saran`, all password `mplads2026`.
 

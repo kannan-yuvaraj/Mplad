@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, num, rupees } from "../api.js";
 import { LiveStamp, Topbar } from "../components/Bits.jsx";
+import ExplainTabs from "../components/ExplainTabs.jsx";
 import { IconLayers } from "../components/icons.jsx";
 import { checkName, familyName, plainEvidence, plainGuidance, plainNextStep, plainReason } from "../plain.js";
 
@@ -255,6 +256,7 @@ export default function Workflow() {
           </div>
         }
       />
+      <ExplainTabs />
 
       <div className="content">
         <div className="hitl">

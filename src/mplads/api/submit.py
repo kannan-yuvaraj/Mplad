@@ -20,10 +20,11 @@ import json
 import logging
 from typing import Any, Iterator
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from mplads import submission
+from mplads.api import guard
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,13 +56,9 @@ def _assessment(actor: str) -> submission.Assessment:
 
 
 async def _read_upload(file: UploadFile, kind: str) -> bytes:
-    data = await file.read()
+    # Stops at the cap instead of holding the whole upload in memory first.
     cap = MAX_PHOTO_BYTES if kind == "photo" else MAX_DOCUMENT_BYTES
-    if len(data) > cap:
-        raise HTTPException(400, f"file is larger than {cap // (1024 * 1024)} MB")
-    if not data:
-        raise HTTPException(400, "the uploaded file is empty")
-    return data
+    return await guard.read_capped(file, cap, "file")
 
 
 @router.get("/plan")
@@ -86,6 +83,7 @@ def plan() -> dict[str, Any]:
 
 @router.post("/assess")
 async def assess_stream(
+    request: Request,
     file: UploadFile = File(...),
     kind: str = Form("photo"),
     work_ref: str = Form(""),
@@ -95,6 +93,7 @@ async def assess_stream(
     """Stream the assessment as Server-Sent Events."""
     if kind not in {"photo", "document"}:
         raise HTTPException(400, "kind must be 'photo' or 'document'")
+    guard.rate_limit(request, "read", guard.HEAVY_REQUESTS_PER_WINDOW)
     data = await _read_upload(file, kind)
     filename = file.filename or ("upload.jpg" if kind == "photo" else "upload.pdf")
 
@@ -107,20 +106,30 @@ async def assess_stream(
 
     engine = _assessment(actor="demo-intake")
 
+    # Refuse before streaming starts, so a busy service answers 429 rather than
+    # opening a stream it cannot serve.
+    if not guard.try_acquire_slot():
+        raise guard.busy()
+
     def events() -> Iterator[str]:
-        # The plan first, so the client can render all eleven rows immediately.
-        yield _sse("plan", {"stages": [{"stage": s, "title": t}
-                                       for s, t in submission.STAGE_PLAN]})
+        # The slot is released however the stream ends: finished, failed, or the
+        # client closing the tab (the generator is closed and `finally` runs).
         try:
-            for stage in engine.run(data=data, filename=filename, kind=kind,
-                                    declared_work_ref=work_ref.strip(),
-                                    declared_amount=declared_amount,
-                                    reader=reader.strip() or None):
-                yield _sse("stage", stage.to_dict())
-        except Exception as exc:  # a failure must reach the screen, not hang it
-            LOGGER.exception("assessment failed")
-            yield _sse("error", {"error": f"{type(exc).__name__}: {exc}"})
-        yield _sse("done", {})
+            # The plan first, so the client can render all eleven rows immediately.
+            yield _sse("plan", {"stages": [{"stage": s, "title": t}
+                                           for s, t in submission.STAGE_PLAN]})
+            try:
+                for stage in engine.run(data=data, filename=filename, kind=kind,
+                                        declared_work_ref=work_ref.strip(),
+                                        declared_amount=declared_amount,
+                                        reader=reader.strip() or None):
+                    yield _sse("stage", stage.to_dict())
+            except Exception as exc:  # a failure must reach the screen, not hang it
+                LOGGER.exception("assessment failed")
+                yield _sse("error", {"error": f"{type(exc).__name__}: {exc}"})
+            yield _sse("done", {})
+        finally:
+            guard.release_slot()
 
     return StreamingResponse(
         events(),
@@ -137,6 +146,7 @@ async def assess_stream(
 
 @router.post("/assess-sync")
 async def assess_sync(
+    request: Request,
     file: UploadFile = File(...),
     kind: str = Form("photo"),
     work_ref: str = Form(""),
@@ -146,6 +156,7 @@ async def assess_sync(
     """The same assessment, returned in one body."""
     if kind not in {"photo", "document"}:
         raise HTTPException(400, "kind must be 'photo' or 'document'")
+    guard.rate_limit(request, "read", guard.HEAVY_REQUESTS_PER_WINDOW)
     data = await _read_upload(file, kind)
     filename = file.filename or ("upload.jpg" if kind == "photo" else "upload.pdf")
 
@@ -157,10 +168,15 @@ async def assess_sync(
             raise HTTPException(400, "amount must be a number")
 
     engine = _assessment(actor="demo-intake")
-    stages = [s.to_dict() for s in engine.run(
-        data=data, filename=filename, kind=kind,
-        declared_work_ref=work_ref.strip(), declared_amount=declared_amount,
-        reader=reader.strip() or None)]
+
+    def run() -> list[dict[str, Any]]:
+        return [s.to_dict() for s in engine.run(
+            data=data, filename=filename, kind=kind,
+            declared_work_ref=work_ref.strip(), declared_amount=declared_amount,
+            reader=reader.strip() or None)]
+
+    with guard.heavy_slot():
+        stages = await guard.run_heavy(run)
 
     lead = next((s for s in reversed(stages) if s["stage"] == "lead"), None)
     return {

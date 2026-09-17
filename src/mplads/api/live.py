@@ -359,10 +359,43 @@ def evidence_file(attach_id: str):
 _VENDOR_CACHE: dict[str, Any] = {}
 
 
-def _vendor_report() -> dict[str, Any] | None:
+#: The vendor report as last computed from the live mirror, committed with the other
+#: artifacts. The mirror is 46 MB and never leaves the machine that syncs it, so a
+#: deployment built from the repository has no live database at all. Without this the
+#: "Who gets paid" screen on the public site could only ever show an error. The
+#: response carries `source: "snapshot"` and the time it was taken, and the screen says
+#: so; it is never presented as live.
+VENDOR_SNAPSHOT = Path(__file__).resolve().parents[3] / "data" / "artifacts" / "vendor_concentration.json"
+
+
+def _vendor_snapshot() -> dict[str, Any] | None:
+    try:
+        import json
+
+        report = json.loads(VENDOR_SNAPSHOT.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    report.setdefault("source", "snapshot")
+    return report
+
+
+def export_vendor_snapshot(path: Path = VENDOR_SNAPSHOT) -> dict[str, Any] | None:
+    """Write the live vendor report to the committed snapshot. Returns it, or None."""
+    report = _vendor_report(allow_snapshot=False)
+    if report is None:
+        return None
+    import json
+
+    out = dict(report, source="snapshot",
+               snapshot_taken_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    path.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return out
+
+
+def _vendor_report(allow_snapshot: bool = True) -> dict[str, Any] | None:
     store = _store()
     if store is None:
-        return None
+        return _vendor_snapshot() if allow_snapshot else None
     try:
         from mplads.intelligence import vendors
     except ImportError:
@@ -378,7 +411,7 @@ def _vendor_report() -> dict[str, Any] | None:
             "SELECT ida_name, ia_name, state_name, vendor_id, vendor_name, "
             "fund_disbursed_amount FROM payment").fetchall()]
 
-    report = vendors.concentration_report(rows)
+    report = dict(vendors.concentration_report(rows), source="live")
     _VENDOR_CACHE.update(key=key, report=report)
     return report
 
@@ -411,6 +444,8 @@ def vendor_concentration(
         "coverage": report["coverage"],
         "contract": report["contract"],
         "benchmark_note": report["benchmark_note"],
+        "source": report.get("source", "live"),
+        "snapshot_taken_at": report.get("snapshot_taken_at"),
     }
 
 

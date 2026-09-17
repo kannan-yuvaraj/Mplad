@@ -83,8 +83,9 @@ export default function FieldVerify({ workRef }) {
       setPhoto((p) => ({ ...p, name: res.photo }));
       setScan(res);
       api.ocrStatus().then(setReaders).catch(() => {});
-    } catch {
-      setScan({ error: "Could not read that image." });
+    } catch (err) {
+      // Busy (429) and too large (413) are things the officer can act on; say them.
+      setScan({ error: [413, 429].includes(err?.status) ? err.message : "Could not read that image." });
     } finally {
       setScanning(false);
     }

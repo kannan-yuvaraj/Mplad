@@ -42,7 +42,9 @@ import {
 import { useI18n } from "./I18nContext.jsx";
 
 function Sidebar() {
-  const link = ({ isActive }) => "nav-link" + (isActive ? " active" : "");
+  const { pathname } = useLocation();
+  const link = (item) => ({ isActive }) =>
+    "nav-link" + (isActive || item.also?.includes(pathname) ? " active" : "");
   const { role, scope, meta } = useRole();
   const { t } = useI18n();
   return (
@@ -62,7 +64,7 @@ function Sidebar() {
           <div key={group.id}>
             <div className="nav-group-label"><span className="nav-step" aria-hidden="true">{group.step}</span>{t(group.key, group.label)}</div>
             {group.items.map((item) => (
-              <NavLink key={item.to} to={item.to} className={link}>
+              <NavLink key={item.to} to={item.to} className={link(item)}>
                 <span className="ic"><item.Icon size={15} /></span>
                 {t(item.key, item.label)}
               </NavLink>

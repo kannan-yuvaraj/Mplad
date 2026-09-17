@@ -23,8 +23,8 @@ export default function Login() {
     try {
       await login(username, password);
       nav("/overview");
-    } catch {
-      setError("Incorrect username or password.");
+    } catch (err) {
+      setError(err?.status === 429 ? err.message : "Incorrect username or password.");
       setBusy(false);
     }
   }

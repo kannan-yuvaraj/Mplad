@@ -14,6 +14,8 @@ Writes `demo/photos/*.png|jpg` and `demo/WALKTHROUGH.md`, and seeds the verifica
 
 from __future__ import annotations
 
+import hashlib
+import random
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -78,6 +80,49 @@ def render_board(work: pd.Series, *, weathered: bool = False) -> Image.Image:
     return image
 
 
+def in_scene(board: Image.Image, work_ref: str) -> Image.Image:
+    """Stand the board at its own roadside, the way an officer's photograph shows it.
+
+    A bare board is a flat template: every work's board has the same layout and
+    differs only in small text, which a perceptual hash cannot see. Uploaded one
+    after another, five different works all "matched" each other, so the demo
+    reported a re-used photograph that never existed. Real photographs differ in
+    sky, ground, framing and what stands behind the board — so these do too.
+    The scene is seeded by the work reference, so the same work always gets the
+    same scene and `reshoot` of it still matches, which is the point of that demo.
+    """
+    rng = random.Random(int(hashlib.sha256(work_ref.encode()).hexdigest()[:12], 16))
+    width, height = 1600, 1100
+    horizon = rng.randint(330, 720)
+    sky_top = rng.randint(90, 235)
+    scene = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(scene)
+    for y in range(horizon):  # sky, darker or lighter per site
+        shade = int(sky_top + (255 - sky_top) * y / max(horizon, 1) * 0.6)
+        draw.line([(0, y), (width, y)], fill=(shade - 20, shade, min(255, shade + 25)))
+    ground = rng.choice([(96, 84, 60), (60, 92, 48), (140, 120, 90), (48, 48, 44)])
+    draw.rectangle([0, horizon, width, height], fill=ground)
+    for _ in range(rng.randint(3, 9)):  # trees, buildings, a wall — whatever is there
+        x = rng.randint(-100, width)
+        w = rng.randint(80, 420)
+        top = horizon - rng.randint(60, 360)
+        tone = rng.randint(20, 120)
+        if rng.random() < 0.5:
+            draw.ellipse([x, top, x + w, horizon + 40], fill=(tone, tone + 30, tone))
+        else:
+            draw.rectangle([x, top, x + w, horizon + 10], fill=(tone + 60, tone + 50, tone + 40))
+
+    scale = rng.uniform(0.62, 0.88)
+    placed = board.resize((int(board.width * scale), int(board.height * scale)))
+    placed = placed.rotate(rng.uniform(-4, 4), expand=True, fillcolor=ground)
+    x = rng.randint(40, width - placed.width - 40)
+    y = rng.randint(60, height - placed.height - 40)
+    post = (x + placed.width // 2 - 12, y + placed.height - 10)
+    draw.rectangle([post[0], post[1], post[0] + 24, height], fill=(70, 70, 70))
+    scene.paste(placed, (x, y))
+    return scene
+
+
 def reshoot(image: Image.Image) -> bytes:
     """The same picture, sent again the way a re-used photo actually arrives.
 
@@ -123,27 +168,39 @@ def main() -> None:
         (PHOTOS / name).write_bytes(data)
         written.append((name, caption))
 
-    save("01-board-matches.png", as_png(render_board(lead)),
+    def photo(work, **kw):
+        return in_scene(render_board(work, **kw), str(work["work_ref"]))
+
+    save("01-board-matches.png", as_png(photo(lead)),
          "A clean board for {}. It reads, and it matches the case file you are "
          "standing in.".format(lead["work_ref"]))
 
-    save("02-board-different-work.png", as_png(render_board(second_lead)),
+    save("02-board-different-work.png", as_png(photo(second_lead)),
          "A board for {}. Upload it on {}'s case file and the reader says so instead "
          "of accepting it.".format(second_lead["work_ref"], lead["work_ref"]))
 
-    save("03-photo-first-submission.png", as_png(render_board(ordinary_a)),
+    save("03-photo-first-submission.png", as_png(photo(ordinary_a)),
          "Submitted first, for {}.".format(ordinary_a["work_ref"]))
 
-    save("04-photo-resubmitted.jpg", reshoot(render_board(ordinary_a)),
+    save("04-photo-resubmitted.jpg", reshoot(photo(ordinary_a)),
          "The same photograph resized, re-compressed and brightened, then submitted for "
          "{}. A different file; the same picture.".format(ordinary_b["work_ref"]))
 
-    save("05-board-weathered.png", as_png(render_board(ordinary_b, weathered=True)),
+    save("05-board-weathered.png", as_png(photo(ordinary_b, weathered=True)),
          "Faded and out of focus, the way boards actually look. Shows what the reader "
          "does when it is unsure rather than pretending it is not.")
 
-    seed_records(lead, second_lead, ordinary_a)
-    write_walkthrough(works, written)
+    # The public copy the Submit page loads its samples from.
+    public = config.REPO_ROOT / "frontend" / "public" / "demo" / "photos"
+    public.mkdir(parents=True, exist_ok=True)
+    for name, _ in written:
+        (public / name).write_bytes((PHOTOS / name).read_bytes())
+
+    if "--photos-only" in sys.argv:
+        print("photographs only: no records seeded, walkthrough unchanged")
+    else:
+        seed_records(lead, second_lead, ordinary_a)
+        write_walkthrough(works, written)
 
     print("wrote {} photographs to {}".format(len(written), PHOTOS))
     for name, caption in written:

@@ -43,6 +43,17 @@ async function request(path, init = {}) {
   return res;
 }
 
+/**
+ * Turn a failed response into an Error carrying the server's own explanation.
+ * A bare "429" or "413" tells nobody that the service is busy or the file too big.
+ */
+export async function failure(res) {
+  const detail = await res.json().then((d) => d?.detail).catch(() => null);
+  const err = new Error(typeof detail === "string" ? detail : `${res.status} ${res.statusText}`);
+  err.status = res.status;
+  return err;
+}
+
 async function get(path) {
   const res = await request(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -85,7 +96,7 @@ export const api = {
     fetch("/api/auth/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
-    }).then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); }),
+    }).then(async (r) => { if (!r.ok) throw await failure(r); return r.json(); }),
   demoAccounts: () => get("/api/auth/accounts"),
   ocr: (file, workRef) => {
     const form = new FormData();
@@ -94,7 +105,7 @@ export const api = {
     // *different* sanction is reported and one re-taken for this work is not.
     if (workRef) form.append("work_ref", workRef);
     return fetch("/api/ocr", { method: "POST", headers: authHeaders(), body: form })
-      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+      .then(async (r) => { if (!r.ok) throw await failure(r); return r.json(); });
   },
   /** A sanction order, work order or certificate (PDF or photo), read by Docling. */
   ocrDocument: (file, workRef) => {

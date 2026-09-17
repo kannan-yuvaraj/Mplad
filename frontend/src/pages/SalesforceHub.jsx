@@ -11,7 +11,7 @@ import { STAGE_HELP, clueName, familyName, plainEvidence } from "../plain.js";
 function plainAgeing(a) {
   const r = a.reading || "";
   if (r.startsWith("Every one of")) {
-    return `All ${num(a.open_cases)} open cases are still on the step they started on. That is because they were all added at the same moment — like a class on its first day, not a team that has fallen behind. These numbers start to mean something once officers begin working on the cases.`;
+    return `All ${num(a.open_cases)} open cases are still on the step they started on. Their review dates were set from the data snapshot of 26 May 2026, and nobody has worked this demonstration batch since — so every date has passed. That is a batch nobody has started, not a team that has fallen behind. These numbers start to mean something once officers begin working on the cases.`;
   }
   if (r.startsWith("Nothing open")) return "No open case has gone past its review date.";
   return `${num(a.late)} of ${num(a.open_cases)} open cases have gone past the date someone promised to review them, holding ${rupees(a.late_exposure_rupees)} of money at risk between them.`;
@@ -31,6 +31,8 @@ export default function SalesforceHub() {
   const { lang } = useI18n();
   const [overview, setOverview] = useState(null);
   const [ageing, setAgeing] = useState(null);
+  // No open case has ever moved: the ageing figures describe an unworked batch.
+  const unstarted = (ageing?.reading || "").startsWith("Every one of");
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -246,10 +248,20 @@ export default function SalesforceHub() {
           <Reveal>
             <div className="section-title">Cases nobody has moved</div>
             <div className="card" style={{ marginBottom: 24 }}>
+              {/* When no case has ever been worked, "500 past their review date" is a fact
+                  about an untouched demonstration batch, not a department. Read first, it
+                  looked like the system was failing — so the explanation goes above the
+                  numbers in that state, and the alarm colour comes off. */}
+              {unstarted && (
+                <div className="dossier-reading" style={{ padding: "10px 14px", marginBottom: 14 }}
+                     title={ageing.reading}>
+                  {plainAgeing(ageing)}
+                </div>
+              )}
               <div className="grid cols-4" style={{ marginBottom: 14 }}>
                 <div className="card stat">
                   <div className="label">Past their review date</div>
-                  <div className="value accent">{num(ageing.late)}</div>
+                  <div className={"value" + (unstarted ? "" : " accent")}>{num(ageing.late)}</div>
                   <div className="foot">of {num(ageing.open_cases)} still open</div>
                 </div>
                 <div className="card stat">
@@ -269,9 +281,11 @@ export default function SalesforceHub() {
                 </div>
               </div>
 
-              <div className="dossier-reading" style={{ padding: "10px 14px" }} title={ageing.reading}>
-                {plainAgeing(ageing)}
-              </div>
+              {!unstarted && (
+                <div className="dossier-reading" style={{ padding: "10px 14px" }} title={ageing.reading}>
+                  {plainAgeing(ageing)}
+                </div>
+              )}
 
               <div className="dossier-chips" style={{ marginTop: 12 }}>
                 {ageing.buckets.map((bucket) => (
